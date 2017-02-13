@@ -17,7 +17,11 @@ wd <- getwd()
 rdata <- paste0(wd, "/Data/Raw") 
 cdata <- paste0(wd, "/Data/Cleaned")
 
-fxn <- paste0(wd, "Scripts/00-Functions.R")
+sexdata <- paste0(rdata, "/February (Week 5) Survey_Data.csv")
+hivdata <- paste0(rdata, "/RESULTS_20120316 2.dta")
+data <- paste0(rdata, "/ctsbs_raw_data.rda")
+
+fxn <- paste0(wd, "/Scripts/00-Functions.R")
 
 # ====================
 # Loading dependencies
@@ -34,29 +38,37 @@ InstallLoad("magrittr", "tidyverse", "haven")
 # Import data
 # ===========
 
+sexdf <- read_delim(sexdata, delim = ";")
+hivdf <- read_dta(hivdata)
+
 # ============================
 # Prepare datasets for merging
 # ============================
 
-# First, add leading zeroes to pad other id vars
-# ID created from EA, HH id, and core respondent id
-# Part 1 respondent ID created from EA, HH, and resp id
-# Delete extraneous id vars
-# Take out non-core resp from s1
-
+# Make sure id's are same type
+# Drop duplicates
+hivdf <- hivdf %>%
+  mutate(IndBarcode = as.numeric(IndBarcode)) %>%
+  distinct(.keep_all = TRUE)
 
 
 # =======================
 # Merge datasets together
 # =======================
- 
+df <- left_join(sexdf, hivdf, by = c("BARCODE" = "IndBarcode"))
 
 # =========
 # Save data
 # =========
 
+save(df, file = data)
+
 # ================
 # Remove libraries 
 # ================
-RemoveLibraries("magrittr", "tidyverse", "haven")
+# RemoveLibraries("magrittr", "tidyverse", "haven")
+Vectorize(detach)(name = paste0("package:", c("magrittr", "tidyverse", "haven")), 
+                  unload = TRUE, 
+                  character.only = TRUE)
+
 rm(list=ls())

@@ -67,10 +67,8 @@ df1 <- df %>%
          travelomp = OTHERPARTNERTIMETRAVEL, bornomp = OTHERPARTNERYEARBORN,
          youdrugsomp = OTHERPARTNERYOUDRUGS, youalcomp = OTHERPARTNERYOUDRUNK,
          sfomp = OTHERSEXFREQUENCE, totalpartners = PARTNERSLIVETIME,
-         periodmp = MAINPARTNERPERIOD, periodomp = OTHERPARTNERPERIOD,
-         periodcp = MAKWAPHENIPERIOD, relig = RELIGION,
-         school = SCHOOL, grade = SCHOOLGRADE, sfmp = SEXFREQUENCE,
-         sexorientation = SEXORIENTATION, slept = SLEPT, 
+         relig = RELIGION,school = SCHOOL, grade = SCHOOLGRADE, 
+         sfmp = SEXFREQUENCE, sexorientation = SEXORIENTATION, slept = SLEPT, 
          start = STARTTIME, easy = TOUCHSCREENEASY, private = TOUCHSCREENPRIVATE,
          truth = TRUTHFUL, born = YEARBORN, bornmp = YEARBORNPARTNER,
          hiv = Q66_HIV_DET, confirm = Q67_HIV_UNI, wantknow = Q68_KHS,
@@ -277,18 +275,24 @@ df5 <- df4 %>%
 # ========================
 # Re-format date variables
 # ========================
-df6 <- df5 %>%
-  mutate()
+df <- df5 %>%
+  separate(startend, c("perstart", "perend"),
+           sep = "-") %>%
+  mutate(perstart = ymd(perstart),
+         perend = ymd(perend),
+         acasidate = as_date(start)) %>%
+  select(-start)
 
 # =============
 # Save datasets
 # =============
+save(df, file = cleandata)
 
 # ====================================================
 # Detach libraries and remove objects from environment
 # ====================================================
-Vectorize(detach)(name = paste0("package:", c("magrittr", "lubridate", "forcats",
-                                              "tidyverse", "gdata")), 
+Vectorize(detach)(name = paste0("package:", c("lubridate", "forcats",
+                                              "tidyverse", "gdata", "magrittr")), 
                   unload = TRUE, 
                   character.only = TRUE)
 rm(list=ls())

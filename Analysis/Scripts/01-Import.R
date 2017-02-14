@@ -7,7 +7,8 @@
 # Description: This script imports the raw dataset from the  
 # CTSBS study and the HIV results from ZAMSTAR,
 # merges them together and saves it as a dataframe that can be loaded 
-# in other scripts
+# in other scripts. It also runs queries on the df at the end
+# to make sure there are no duplicates or clerical errors
 
 # ===================
 # Relative file paths
@@ -46,7 +47,7 @@ hivdf <- read_dta(hivdata)
 # ============================
 
 # Make sure id's are same type
-# Drop duplicates
+# Drop completely duplicated rows
 hivdf <- hivdf %>%
   mutate(IndBarcode = as.numeric(IndBarcode)) %>%
   distinct(.keep_all = TRUE)
@@ -56,6 +57,21 @@ hivdf <- hivdf %>%
 # Merge datasets together
 # =======================
 df <- left_join(sexdf, hivdf, by = c("BARCODE" = "IndBarcode"))
+
+# =======
+# QUERIES
+# =======
+
+# Get rid of all completely duplicated rows
+df <- df %>%
+  distinct(.keep_all = TRUE)
+
+# There shouldn't be rows with the same barcode, partner number,
+# partner type and period number
+
+df <- df %>%
+  distinct(Partner_Number, Partner_Type, BARCODE, Period_Number,
+           .keep_all = TRUE)
 
 # =========
 # Save data
@@ -67,7 +83,7 @@ save(df, file = data)
 # Remove libraries 
 # ================
 # RemoveLibraries("magrittr", "tidyverse", "haven")
-Vectorize(detach)(name = paste0("package:", c("magrittr", "tidyverse", "haven")), 
+Vectorize(detach)(name = paste0("package:", c("tidyverse", "haven", "magrittr")), 
                   unload = TRUE, 
                   character.only = TRUE)
 

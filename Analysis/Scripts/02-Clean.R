@@ -47,9 +47,10 @@ load(data)
 # ====================================
 
 df1 <- df %>%
-  select(partner = Partner_Number, pt = Partner_Type, period = Period_Number,
-         startend = StartEndDate, age = AGE, agemp = AGEPARTNER,
-         id = BARCODE, cplastyear = CASUALPARTNERLASTYEAR, cf = CONDOMSFREQUENCE,
+  select(id = BARCODE, partner = Partner_Number, pt = Partner_Type, period = Period_Number,
+         startend = StartEndDate, startcp = MAKWAPHENISTART, startomp = OTHERPARTNERSTART,  
+         startmp = RELATIONSHIPSTART, age = AGE, agemp = AGEPARTNER,
+         cplastyear = CASUALPARTNERLASTYEAR, cf = CONDOMSFREQUENCE,
          earn = EARN, race = ETHNIC, sex = GENDER, interview = INTERVIEWAGAIN,
          job = JOB, lang = LANG, partmp = MAINPARTNER, ongoingmp = MAINPARTNERSTILL,
          agecp = MAKWAPHENIAGE, condlastcp = MAKWAPHENICONDOMLASTTIME,
@@ -67,12 +68,12 @@ df1 <- df %>%
          travelomp = OTHERPARTNERTIMETRAVEL, bornomp = OTHERPARTNERYEARBORN,
          youdrugsomp = OTHERPARTNERYOUDRUGS, youalcomp = OTHERPARTNERYOUDRUNK,
          sfomp = OTHERSEXFREQUENCE, totalpartners = PARTNERSLIVETIME,
-         relig = RELIGION,school = SCHOOL, grade = SCHOOLGRADE, 
+         relig = RELIGION, school = SCHOOL, grade = SCHOOLGRADE, 
          sfmp = SEXFREQUENCE, sexorientation = SEXORIENTATION, slept = SLEPT, 
-         start = STARTTIME, easy = TOUCHSCREENEASY, private = TOUCHSCREENPRIVATE,
+         easy = TOUCHSCREENEASY, private = TOUCHSCREENPRIVATE,
          truth = TRUTHFUL, born = YEARBORN, bornmp = YEARBORNPARTNER,
          hiv = Q66_HIV_DET, confirm = Q67_HIV_UNI, wantknow = Q68_KHS,
-         resultgiven = Q69_GHB)
+         resultgiven = Q69_GHB, start = STARTTIME)
          
 
 # ========================
@@ -193,14 +194,13 @@ df3 <- df2 %>%
                            labels = c("No", "Yes")),
          resultgiven = factor(resultgiven, levels = c(0, 1),
                                labels = c("No", "Yes")),
-         totalpartners = factor(totalpartners))
+         totalpartners = factor(totalpartners),
+         startmp = factor(startmp))
 
 
 # =======================================
 # Combining categories for some variables
 # =======================================
-
-
 df4 <- df3 %>%
   mutate(travelcp = fct_collapse(travelcp,
                                  lesshalfhour = c("15 Minutes", "15 Minute", "15 Imizuzu",
@@ -253,7 +253,15 @@ df4 <- df3 %>%
                               grade10 = c("Grade 10", "Graad 10"),
                               grade11 = c("Grade 11", "Graad 11"),
                               grade12 = c("Grade 12", "Graad 12"),
-                              tertiary = c("Tertiary Education", "Tersiere Onderwys")))
+                              tertiary = c("Tertiary Education", "Tersiere Onderwys")),
+         startmp = fct_collapse(startmp,
+                                "2010" = c("2010, Before August", "2010, Before December", "2010, Before February",
+                                                    "2010, Before November", "2010, Before October", "2010, Before September",
+                                                    "2010, Phambi August", "2010, Phambi December", "2010, Phambi February",
+                                                    "2010, Phambi January", "2010, Phambi November", "2010, Phambi October",
+                                                    "2010, Phambi September", "2010, Voordat Desember", "2010, Voordat November",
+                                                    "2010, Voordat Oktober", "2010, Voordat September"),
+                                "<1999" = c("Voordat 1999", "Phambi 1999", "Before 1999")))
 
 # =======================
 # Make characters numeric
@@ -280,8 +288,10 @@ df <- df5 %>%
            sep = "-") %>%
   mutate(perstart = ymd(perstart),
          perend = ymd(perend),
+         startdatecp = ymd(substr(startcp, 1, 8)),
+         startdateomp = ymd(substr(startomp, 1, 8)),
          acasidate = as_date(start)) %>%
-  select(-start)
+  select(-startcp, -startomp, - start)
 
 # =============
 # Save datasets
@@ -292,7 +302,7 @@ save(df, file = cleandata)
 # Detach libraries and remove objects from environment
 # ====================================================
 Vectorize(detach)(name = paste0("package:", c("lubridate", "forcats",
-                                              "tidyverse", "gdata", "magrittr")), 
+                                              "tidyverse", "gdata")), 
                   unload = TRUE, 
                   character.only = TRUE)
 rm(list=ls())

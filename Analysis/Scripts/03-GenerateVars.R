@@ -28,7 +28,8 @@ source(fxn)
 # forcats: for categorical and string vars
 
 
-InstallLoad("magrittr", "tidyverse", "forcats")
+InstallLoad("magrittr", "tidyverse", "forcats",
+            "lubridate")
 
 # =============
 # Load datasets
@@ -99,23 +100,76 @@ df2 <- df1 %>%
          ongoing = factor(ifelse(pt == "MP", ongoingmp,
                                  ifelse(pt == "OMP", ongoingomp, ongoingcp)),
                           levels = c(1, 2),
-                          labels = c("Yes", "No"))) %>%
+                          labels = c("Yes", "No")),
+         start = ifelse(pt == "CP", startdatecp, 
+                        ifelse(pt == "OMP", startdateomp, NA))) %>%
   select(-agemp, -ageomp, -agecp, -cfmp, -cfomp, -cfcp, -sfmp, -sfomp, -sfcp,
          -bornmp, - bornomp, -borncp, -condlastcp, -condlastomp, -drugscp, 
          -drugsomp, -alccp, -alcomp, -youdrugscp, -youdrugsomp, -youalccp,
          -youalcomp, -otherpartcp, -otherpartomp, -ongoingmp, -ongoingcp,
-         -ongoingomp, -travelcp, -travelomp, -livecp, -liveomp)
+         -ongoingomp, -travelcp, -travelomp, -livecp, -liveomp, -startdatecp,
+         -startdateomp)
 
 
 # Where partner is missing, add zero
+df3 <- df2 %>%
+  mutate(partner = ifelse(is.na(partner), 0, partner))
+
+# Create variables for point prevalence dates
+df4 <- df3 %>%
+  mutate(acasidate12mb = acasidate - 365,
+         acasidate9mb = acasidate - 274,
+         acasidate6mb = acasidate - 183,
+         acasidate3mb = acasidate - 91)
+
+# Unique relid, start and end dates for relationship
+df5 <- df4 %>%
+  mutate(relid = as.numeric(paste0(id, partner))) %>%
+  group_by(relid) %>%
+  mutate(relstart = min(perstart),
+         relend = max(perend),
+         reldur = (relend - relstart) + 1) %>%
+  ungroup() %>%
+  mutate(reldurweeks = ifelse(reldur < 7, 1, round(reldur / 7)))
+
+# Rel characteristics
+df6 <- df5 %>%
+  group_by(relid) %>%
+  mutate(relsf = mean(sf),
+         relcf = as.factor(ifelse(all(cf == "Always"), "Always", "Inconsistent/Never"))) %>%
+  ungroup()
+
+# Create age and partner age variables
+df7 <- df6 %>%
+  mutate(acasiyear = year(acasidate),
+         age = ifelse(is.na(age), acasiyear - born, age),
+         age = ifelse(age > 74 | age < 15, NA, age),
+         agep = ifelse(is.na(agep), acasiyear - bornp, agep),
+         agecat = cut(age, breaks = c(0, 19, 24, 29, 34, 39, 44, 49, 54, 59,
+                                      64, 69, 74)),
+         agedif = ifelse(sex == "Male", age - agep, agep - age),
+         agedifcat = cut(agedif, breaks = c(-71, -6, -1, 5, 10, 15, 65)))
+                      
+# Create part level agedif vars
+df <- df7 %>%
+  group_by(id) %>%
+  mutate(minagedif = min(agedif, na.rm = T),
+         maxagedif = max(agedif, na.rm = T)) %>%
+  ungroup() %>%
+  mutate(bw = maxagedif - minagedif)
+
 
 # =============
 # Save datasets
 # =============
 
+save(df, file = newvarsdata)
 
 # ====================================================
 # Detach libraries and remove objects from environment
 # ====================================================
-RemoveLibraries("magrittr", "tidyverse")
+
+Vectorize(detach)(name = paste0("package:", c("tidyverse", "forcats", "lubridate")), 
+                  unload = TRUE, 
+                  character.only = TRUE)
 rm(list=ls())

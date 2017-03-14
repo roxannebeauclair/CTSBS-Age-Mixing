@@ -136,7 +136,9 @@ df5 <- df4 %>%
 df6 <- df5 %>%
   group_by(relid) %>%
   mutate(relsf = mean(sf),
-         relcf = as.factor(ifelse(all(cf == "Always"), "Always", "Inconsistent/Never"))) %>%
+         relcf = as.factor(ifelse(all(cf == "Always"), "Always", 
+                                  ifelse(all(cf == "Never"), "Never",
+                                         "Inconsistent")))) %>%
   ungroup()
 
 # Create age and partner age variables

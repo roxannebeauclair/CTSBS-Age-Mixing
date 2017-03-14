@@ -1,0 +1,205 @@
+---
+title: "Missingness exploration"
+author: "Roxanne Beauclair"
+date: '`r format(Sys.Date(), "%d %B %Y")`'
+output: html_document
+---
+
+```{r setup, include = FALSE}
+# ===================
+# Relative file paths
+# ===================
+wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSBS Age Mixing/Analysis"
+
+cdata <- paste0(wd, "/Data/Cleaned")
+
+excludedata <- paste0(cdata, "/ctsbs_excluded_data.rda")
+
+fxn <- paste0(wd, "/Scripts/00-Functions.R")
+
+# ====================
+# Loading dependencies
+# ====================
+source(fxn)
+
+# magrittr: for use of %>% operator
+# tidyverse: for data management functions
+
+
+InstallLoad("magrittr", "tidyverse")
+
+# =============
+# Load datasets
+# =============
+load(excludedata)
+
+
+# ===============
+# Global settings
+# ===============
+
+theme <- theme(axis.title.x = element_text(face = "bold", size = 10),
+             axis.text.x  = element_text(angle = 0, face = "bold",
+                                         colour = "black", size = 8),
+             axis.title.y = element_text(face = "bold", size = 10),
+             axis.text.y = element_text(angle = 0, 
+                                        face = "bold", 
+                                        colour = "black", 
+                                        hjust = 0.5,
+                                        size = 8),
+             plot.title = element_text(lineheight = .8, face = "bold"),
+             panel.grid.major = element_line(colour = 'grey82'),
+             panel.grid.minor = element_line(colour = NA),
+             panel.background = element_rect(fill = 'white'),
+             strip.background = element_rect(fill = 'white'),
+             strip.text = element_text(size = 8, face = "bold"),
+             legend.title = element_text(colour = "black", size = 9, face = "bold"),
+             legend.text = element_text(size = 8, face = "bold"),
+             plot.margin = unit(c(1.5,1,1,1), "lines"))
+
+# Initialize table counter
+options(show.signif.stars = F)
+
+
+```
+
+```{r variation, echo = FALSE, warning = FALSE, message = FALSE}
+
+df %>% ggplot() +
+  geom_bar(aes(x = relcf)) + 
+  theme
+
+df %>% ggplot() +
+  geom_bar(aes(x = ongoing)) + 
+  theme
+
+df %>% ggplot() +
+  geom_histogram(aes(x = relsf)) + 
+  theme
+
+summary(df$relsf)
+
+df %>% ggplot() + 
+  geom_bar(aes(x = relconcur)) +
+  theme
+
+df %>% ggplot() + 
+  geom_bar(aes(x = hiv)) + 
+  theme
+
+df %>% ggplot() +
+  geom_histogram(aes(x = relcount)) +
+  theme
+
+summary(df$relcount)
+
+df %>% ggplot() +
+  geom_histogram(aes(x = reldurweeks)) +
+  theme
+
+summary(df$reldurweeks)
+
+df %>% ggplot() +
+  geom_histogram(aes(x = agedif)) + 
+  theme
+
+summary(df$agedif)
+agedifoutly <- filter(df, agedif <= -40 |
+                        agedif >= 40)
+
+agedifoutly
+
+df %>% ggplot() +
+  geom_bar(aes(x = pt)) +
+  theme
+
+df %>% ggplot() +
+  geom_histogram(aes(x = age)) +
+  theme
+
+summary(df$age)
+
+df %>% ggplot() +
+  geom_bar(aes(x = race)) + 
+  theme
+
+df %>% ggplot() +
+  geom_bar(aes(x = sex)) +
+  theme
+
+df %>% ggplot() +
+  geom_bar(aes(x = job)) +
+  theme
+
+df %>% ggplot() +
+  geom_bar(aes(x = grade)) +
+  theme
+
+```
+
+```{r covariation, echo = FALSE, warning = FALSE, message = FALSE}
+# Sex frequency
+df %>% ggplot(aes(x = job, y = relsf)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = grade, y = relsf)) +
+  geom_boxplot() +
+  coord_flip() +
+  theme
+
+df %>% ggplot(aes(x = sex, y = relsf)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = race, y = relsf)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot() +
+  geom_boxplot(aes(x = reorder(pt, relsf, FUN = median),
+                   y = relsf)) +
+  theme
+
+df %>% ggplot(aes(x = hiv, y = relsf)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relconcur, y = relsf)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = ongoing, y = relsf)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relcf, y = relsf)) +
+  geom_boxplot() +
+  theme
+
+# Relationship duration
+df %>% ggplot(aes(x = reldurweeks))
+
+df %>% ggplot(aes(x = agedif))
+
+df %>% ggplot(aes(x = relcount))
+
+df %>% ggplot(aes(x = age))
+
+
+
+```
+
+
+```{r, include = FALSE}
+# ====================================================
+# Detach libraries and remove objects from environment
+# ====================================================
+Vectorize(detach)(name = paste0("package:", c("tidyverse")), 
+                  unload = TRUE, 
+                  character.only = TRUE)
+
+rm(list=ls())
+
+```
+

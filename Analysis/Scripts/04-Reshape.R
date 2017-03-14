@@ -52,7 +52,7 @@ save(df, file = reshapedata)
 # ====================================================
 # Detach libraries and remove objects from environment
 # ====================================================
-Vectorize(detach)(name = paste0("package:", c("tidyverse", "magrittr")), 
+Vectorize(detach)(name = paste0("package:", c("tidyverse")), 
                   unload = TRUE, 
                   character.only = TRUE)
 

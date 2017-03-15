@@ -253,7 +253,7 @@ df4 <- df3 %>%
                               grade10 = c("Grade 10", "Graad 10"),
                               grade11 = c("Grade 11", "Graad 11"),
                               grade12 = c("Grade 12", "Graad 12"),
-                              tertiary = c("Tertiary Education", "Tersiere Onderwys")),
+                              tertiary = c("Grade 13", "Tertiary Education", "Tersiere Onderwys")),
          startmp = fct_collapse(startmp,
                                 "2010" = c("2010, Before August", "2010, Before December", "2010, Before February",
                                                     "2010, Before November", "2010, Before October", "2010, Before September",

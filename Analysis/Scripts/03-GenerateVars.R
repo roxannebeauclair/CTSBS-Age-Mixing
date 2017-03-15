@@ -145,21 +145,39 @@ df6 <- df5 %>%
 df7 <- df6 %>%
   mutate(acasiyear = year(acasidate),
          age = ifelse(is.na(age), acasiyear - born, age),
-         age = ifelse(age > 74 | age < 15, NA, age),
+         age = ifelse(age > 70 | age < 15, NA, age),
          agep = ifelse(is.na(agep), acasiyear - bornp, agep),
          agecat = cut(age, breaks = c(0, 19, 24, 29, 34, 39, 44, 49, 54, 59,
-                                      64, 69, 74)),
+                                      64, 70)),
          agedif = ifelse(sex == "Male", age - agep, agep - age),
          agedifcat = cut(agedif, breaks = c(-71, -6, -1, 5, 10, 15, 65)))
-                      
+                     
 # Create part level agedif vars
-df <- df7 %>%
+df8 <- df7 %>%
   group_by(id) %>%
   mutate(minagedif = min(agedif, na.rm = T),
          maxagedif = max(agedif, na.rm = T)) %>%
   ungroup() %>%
   mutate(bw = maxagedif - minagedif)
 
+# Combine other categories 
+# Even if the person identifies as "other" gender, they would be percieved by others
+# as male or female, or at least have the associated biological risk of one or the other
+# So I feel ok imputing what that gender would be
+df <- df8 %>%
+  mutate(hiv = factor(ifelse(hiv == "Not done", NA, hiv),
+                      levels = c(2, 3),
+                      labels = c("Negative", "Positive")),
+         sex = factor(ifelse(sex == "Other", NA, sex),
+                      levels = c(1, 2),
+                      labels = c("Male", "Female")),
+         grade = fct_collapse(grade,
+                              Primary = c("grade0", "grade1", "grade2",
+                                          "grade3", "grade4", "grade5",
+                                          "grade6", "grade7"),
+                              Secondary = c("grade8", "grade9", "grade10",
+                                            "grade11", "grade12"),
+                              Teriary = "tertiary"))
 
 # =============
 # Save datasets

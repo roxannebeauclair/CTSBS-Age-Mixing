@@ -37,24 +37,28 @@ load(concurdata)
 # Exclude participants
 # =====================
 
-# Age: missing, less than 15, older than 70
-# Gender: missing or other
+# Age: missing
+# Gender: missing 
 # Sexorientation: homosexual or other
+df1 <- df %>%
+  filter(sexorientation != "Both" | is.na(sexorientation)) %>%
+  filter((sex == "Male" & sexorientation == "Women") |
+           ((sex == "Female" & sexorientation == "Men")) |
+              (is.na(sex)))
 
 # Race: not black or coloured
-df1 <- df %>%
-  filter(race == "Coloured" | race == "Black")
+df2 <- df1 %>%
+  filter(race == "Coloured" | 
+           race == "Black" |
+           is.na(race))
 
 # Partner: no reported partner in previous year 
 df <- df1 %>%
-  filter(partner != 0)
+  filter(partner != 0) %>%
+  droplevels()
 
 # Sex: no sex with partner in the past year
 # Episodes in the previous 12 months
-
-# ============================
-# Drop non-essential variables
-# =============================
 
 
 # ==================

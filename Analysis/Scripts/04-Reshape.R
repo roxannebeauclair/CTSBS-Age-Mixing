@@ -36,7 +36,7 @@ load(newvarsdata)
 # Reshape to relationships
 # ===============
 df1 <- df %>%
-  select(-period:-perend, -sf, -cf) %>%
+  select(-period, -perstart, -perend, -sf, -cf) %>%
   distinct(id, partner, .keep_all = T) %>%
   mutate(start = as_date(start)) %>%
   select(id:startmp, start, relstart, relend, everything())

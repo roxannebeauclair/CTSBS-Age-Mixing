@@ -177,16 +177,288 @@ df %>% ggplot(aes(x = relcf, y = relsf)) +
   geom_boxplot() +
   theme
 
+df %>% ggplot(aes(x = reldurweeks, y = relsf)) +
+  geom_point(alpha = 0.20) +
+  theme
+
+df %>% ggplot(aes(x = agedif, y = relsf)) +
+  geom_hex() +
+  theme
+
+df %>% ggplot(aes(x = relcount, y = relsf)) +
+  geom_boxplot(aes(group = cut_width(relcount, 1))) +
+  theme
+
+df %>% ggplot(aes(x = age, y = relsf)) +
+  geom_hex() +
+  theme
+
 # Relationship duration
-df %>% ggplot(aes(x = reldurweeks))
+df %>% ggplot(aes(x = job, y = reldurweeks)) +
+  geom_boxplot() +
+  theme
 
-df %>% ggplot(aes(x = agedif))
+df %>% ggplot(aes(x = grade, y = reldurweeks)) +
+  geom_boxplot() +
+  coord_flip() +
+  theme
 
-df %>% ggplot(aes(x = relcount))
+df %>% ggplot(aes(x = sex, y = reldurweeks)) +
+  geom_boxplot() +
+  theme
 
-df %>% ggplot(aes(x = age))
+df %>% ggplot(aes(x = race, y = reldurweeks)) +
+  geom_boxplot() +
+  theme
 
+df %>% ggplot() +
+  geom_boxplot(aes(x = reorder(pt, reldurweeks, FUN = median),
+                   y = reldurweeks)) +
+  theme
 
+df %>% ggplot(aes(x = hiv, y = reldurweeks)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relconcur, y = reldurweeks)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = ongoing, y = reldurweeks)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relcf, y = reldurweeks)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = agedif, y = reldurweeks)) +
+  geom_hex() +
+  theme
+
+df %>% ggplot(aes(x = relcount, y = reldurweeks)) +
+  geom_boxplot(aes(group = cut_width(relcount, 1))) +
+  theme
+
+df %>% ggplot(aes(x = age, y = reldurweeks)) +
+  geom_hex() +
+  theme
+
+# Age difference
+df %>% ggplot(aes(x = job, y = agedif)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = grade, y = agedif)) +
+  geom_boxplot() +
+  coord_flip() +
+  theme
+
+df %>% ggplot(aes(x = sex, y = agedif)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = race, y = agedif)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot() +
+  geom_boxplot(aes(x = reorder(pt, agedif, FUN = median),
+                   y = agedif)) +
+  theme
+
+df %>% ggplot(aes(x = hiv, y = agedif)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relconcur, y = agedif)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = ongoing, y = agedif)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relcf, y = agedif)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relcount, y = agedif)) +
+  geom_boxplot(aes(group = cut_width(relcount, 1))) +
+  theme
+
+df %>% ggplot(aes(x = age, y = agedif)) +
+  geom_hex() +
+  theme
+
+# Relationship count
+df %>% ggplot(aes(x = job, y = relcount)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = grade, y = relcount)) +
+  geom_boxplot() +
+  coord_flip() +
+  theme
+
+df %>% ggplot(aes(x = sex, y = relcount)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = race, y = relcount)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot() +
+  geom_boxplot(aes(x = reorder(pt, relcount, FUN = median),
+                   y = relcount)) +
+  theme
+
+df %>% ggplot(aes(x = hiv, y = relcount)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relconcur, y = relcount)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = ongoing, y = relcount)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relcf, y = relcount)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = age, y = relcount)) +
+  geom_hex() +
+  theme
+
+# Age
+df %>% ggplot(aes(x = job, y = age)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = grade, y = age)) +
+  geom_boxplot() +
+  coord_flip() +
+  theme
+
+df %>% ggplot(aes(x = sex, y = age)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = race, y = age)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot() +
+  geom_boxplot(aes(x = reorder(pt, age, FUN = median),
+                   y = age)) +
+  theme
+
+df %>% ggplot(aes(x = hiv, y = age)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relconcur, y = age)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = ongoing, y = age)) +
+  geom_boxplot() +
+  theme
+
+df %>% ggplot(aes(x = relcf, y = age)) +
+  geom_boxplot() +
+  theme
+
+# Concurrency
+df %>% ggplot() +
+  geom_count(aes(x = job, y = relconcur)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = grade, y = relconcur)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = sex, y = relconcur)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = race, y = relconcur)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = pt, y = relconcur)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = hiv, y = relconcur)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = ongoing, y = relconcur)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = relcf, y = relconcur)) +
+  theme
+
+# Condoms
+df %>% ggplot() +
+  geom_count(aes(x = job, y = relcf)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = grade, y = relcf)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = sex, y = relcf)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = race, y = relcf)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = pt, y = relcf)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = hiv, y = relcf)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = ongoing, y = relcf)) +
+  theme
+
+# HIV
+df %>% ggplot() +
+  geom_count(aes(x = job, y = hiv)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = grade, y = hiv)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = sex, y = hiv)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = race, y = hiv)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = pt, y = hiv)) +
+  theme
+
+df %>% ggplot() +
+  geom_count(aes(x = ongoing, y = hiv)) +
+  theme
 
 ```
 

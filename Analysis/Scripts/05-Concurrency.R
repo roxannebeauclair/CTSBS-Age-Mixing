@@ -84,11 +84,12 @@ for(i in 1:nrow(df1)) {
 # ================================
 
 df <- df1 %>%
+  mutate(relconcur = as.factor(ifelse(is.na(reldurweeks), NA, relconcur))) %>%
   group_by(id) %>%
-  mutate(relconcur = as.factor(relconcur),
-         partconcur = as.factor(ifelse(any(relconcur == "Yes"), 
+  mutate(partconcur = as.factor(ifelse(any(relconcur == "Yes"), 
                                        "Yes", "No")),
-         concurn = sum(relconcur == "Yes"))
+         concurn = sum(relconcur == "Yes")) %>%
+  ungroup()
 
 
 # ==================

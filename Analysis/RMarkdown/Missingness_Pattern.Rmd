@@ -1,7 +1,7 @@
 ---
 title: "CTSBS Missing Data Pattern"
 author: "Roxanne Beauclair"
-date: "`r format(Sys.Date(), "%d %B %Y")`"
+date: '`r format(Sys.Date(), "%d %B %Y")`'
 output: html_document
 ---
 
@@ -40,8 +40,9 @@ load(excludedata)
 
 # For relationship-level characteristics
 rels <- df %>%
-  select(pt, agep, ongoing, reldurweeks, relsf, relcf, relcount,
-         relconcur, slept) 
+  select(relid, relseq, relcount, pt, slept, agep, 
+         live, otherpart, ongoing, relconcur, 
+         relsf, relcf, reldurweeks) 
 
 mdprels <- md.pattern(rels)
 mdprels[order(dimnames(mdprels)[[1]]),]
@@ -49,7 +50,8 @@ summary(rels)
 
 # For participant-level characteristics
 parts <- df %>%
-  select(id, age, race, sex, grade, job, hiv) %>%
+  select(id, age, sex, race, job, grade, hiv, 
+         wantknow, resultgiven, easy, private, truth) %>%
   distinct(id, .keep_all = TRUE)
 
 mdpparts <- md.pattern(parts)

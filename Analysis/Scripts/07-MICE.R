@@ -46,7 +46,14 @@ dfmice <- df %>%
          relseq, relcount, pt, slept, 
          agep, live, otherpart, ongoing, 
          relconcur, relsf, relcf, reldurweeks,
-         easy, private, truth)
+         easy, private, truth) %>%
+  mutate(missage = factor(ifelse(is.na(age), "Imputed", "Observed")),
+         missagep = factor(ifelse(is.na(agep), "Imputed", "Observed")),
+         misshiv = factor(ifelse(is.na(hiv), "Imputed", "Observed")),
+         missrelcf = factor(ifelse(is.na(relcf), "Imputed", "Observed")),
+         missrelconcur = factor(ifelse(is.na(relconcur), "Imputed", "Observed")),
+         missrelsf = factor(ifelse(is.na(relsf), "Imputed", "Observed")),
+         missreldur = factor(ifelse(is.na(reldurweeks), "Imputed", "Observed")))
 
 # ===========================================
 # Specify imputation method for each variable
@@ -57,7 +64,9 @@ meth <- c("", "rfcont", "rfcat", "rfcat",
           "", "", "", "rfcat",
           "rfcont", "rfcat", "rfcat", "rfcat",
           "rfcat", "rfcont", "polr", "rfcont",
-          "polr", "polr", "polr")
+          "polr", "polr", "polr", "",
+          "", "", "", "",
+          "", "")
 
 # ====================
 # Get predictor matrix
@@ -66,7 +75,10 @@ meth <- c("", "rfcont", "rfcat", "rfcat",
 imp <- mice(dfmice, maxit = 0)
 
 pred <- quickpred(dfmice,
-                  exclude = c("id", "relid", "relseq"),
+                  exclude = c("id", "relid", "relseq",
+                              "missage", "missagep", "misshiv",
+                              "missrelcf", "missrelconcur", "missrelsf",
+                              "missreldur"),
                   include = c("age", "sex", "race", "hiv",
                               "pt", "slept", "truth"),
                   mincor = 0.1,

@@ -1,15 +1,15 @@
 ---
 title: "CTSBS Age-Mixing"
 author: "Roxanne Beauclair"
-date: '`r format(sys.date(), "%d %B %Y")`'
+date: '`r format(Sys.Date(), "%d %B %Y")`'
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 # ===================
 # Relative file paths
 # ===================
-wd <- getwd()
+wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSBS Age Mixing/Analysis"
 cdata <- paste0(wd, "/Data/Cleaned")
 
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
@@ -77,7 +77,7 @@ df <- dfimp %>%
   mutate(agemean = age - round(mean(age), 2),
          age2sd = age - round(2 * sd(age), 2)) %>%
   select(id, age, agemean, age2sd, agep, sex,
-         missage, missagep) 
+         missage, missagep, hiv) 
 
 men <- df %>%
   filter(sex == "Male")
@@ -87,27 +87,23 @@ women <- df %>%
 
 
 # Now fit separate models for men and women
-# varPower variance structure for each model
-# The formula to calculate the weights for variance is |v|^(2*t)
-# Age can't be at 0 in varPower formula
-# Otherwise, it will evaluate to 0 variance for the first level (18 year olds)
-modelm1 <- lme(agep ~ age, 
+modelm1 <- lme(agep ~ agemean, 
            data = men, 
            random = ~1 | id,  
            #weights = varPower(value = 0.5, form = ~agemean + 1),
            method = "REML")
 
-modelw1 <- lme(agep ~ age, 
+modelw1 <- lme(agep ~ agemean, 
            data = women, 
            random = ~1 | id,  
            #weights = varPower(value = 0.5, form = ~agemean + 1),
            method = "REML")
 
-modelm2 <- gamm(agep ~ s(age), 
+modelm2 <- gamm(agep ~ s(agemean), 
            data = men, 
            random = list(id = ~1))
 
-modelw2 <- gamm(agep ~ s(age), 
+modelw2 <- gamm(agep ~ s(agemean), 
            data = women, 
            random = list(id = ~1))
 
@@ -127,10 +123,9 @@ womenadd <- women %>%
 
 #Combine both datasets again
 comb <- bind_rows(menadd, womenadd) %>%
-  gather(key, value, -id:-missagep) %>%
+  gather(key, value, -id:-hiv) %>%
   separate(key, into = c("type", "model"), sep = "\\.")
   
-
 ```
 
 ```{r ampfig, echo = FALSE}
@@ -152,7 +147,7 @@ ampfig <- comb %>%
   scale_y_continuous(name = "Partner's ages") +
   scale_color_manual('Imputation Status', values = c('grey70', 'grey42')) +
   scale_linetype_manual('Lines', values = c("Population mean" = 1, 'Same age' = 2)) +
-  xlab("Participant's age") +
+  xlab("Participant's age (centered on mean age)") +
   guides(linetype = guide_legend(keywidth = 2, keyheight = 1)) +
   theme
 
@@ -181,82 +176,179 @@ ampresfig2 <- comb %>%
 
 ampresfig2
 
+```
 
+```{r amp_all, include = FALSE}
+
+byimpsex <- dfimp %>% 
+  filter(.imp != 0) %>%
+  group_by(.imp, sex) %>%
+  mutate(agemean = age - round(mean(age), 2),
+         agegroup = cut(age, 
+                        breaks = c(14, 24, 34, 44, 54, 70),
+                        labels = c("15-24", "25-34", "35-44", "45-54", "55-70")),
+         agepgroup = cut(agep, 
+                        breaks = c(10, 24, 34, 44, 54, 100),
+                        labels = c("<=24", "25-34", "35-44", "45-54", ">=55")))%>%
+  nest()
+
+tidysummary <- byimpsex %>%
+  mutate(model = map(data, ampmodel),
+         modelsum = map(model, ~tidy(.x, effects = "fixed")),
+         bvar = map(model, bvar),
+         wvar = map(model, wvar))
+ 
+modslopeint <- tidysummary %>%
+  unnest(modelsum, .drop = TRUE)
+
+modwvar <- tidysummary %>%
+  unnest(wvar, .drop = TRUE)
+
+modbvar <- tidysummary %>%
+  unnest(bvar, .drop = TRUE)
 
 ```
 
+```{r amp_model_plots, echo = FALSE}
+slopeplot <- modslopeint %>%
+  filter(term == "agemean") %>%
+  ggplot(aes(x = .imp, y = estimate)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = estimate + 2 * std.error,
+                      ymin = estimate - 2 * std.error)) +
+  facet_grid(sex ~ .) +
+  coord_flip() +
+  xlab("Imputation") +
+  ylab("Slope of regression line") +
+  theme
 
-```{r age mixing pattern, include = FALSE}
+slopeplot
 
-# Extract slope/Beta-coefficent of the fixed effects from model
-slopem <- m1m$coefficients$fixed[2] %>%
-  round(rnd2)
-slopew <- m1w$coefficients$fixed[2] %>%
-  round(rnd2)
 
-# Extract power
-powerm <- (attributes(m1m$apVar)$Pars["varStruct.power"]) %>%
-  round(rnd2)
 
-lowerpowerm <- intervals(m1m)$varStruct[, 1] %>%
-  round(rnd2)
+interplot <- modslopeint %>%
+  filter(term == "(Intercept)") %>%
+  ggplot(aes(.imp, estimate)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = estimate + 2 * std.error,
+                      ymin = estimate - 2 * std.error)) +
+  facet_grid(sex ~ .) +
+  coord_flip() +
+  xlab("Imputation") +
+  ylab("Partner age for average age") +
+  theme
 
-upperpowerm <- intervals(m1m)$varStruct[, 3] %>%
-  round(rnd2)
+interplot
 
-powerw <- (attributes(m1w$apVar)$Pars["varStruct.power"]) %>%
-  round(rnd2)
+wvarplot <- modwvar %>%
+  ggplot(aes(.imp, wsd)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = uprwsd,
+                      ymin = lwrwsd)) +
+  facet_grid(sex ~ .) +
+  coord_flip() +
+  xlab("Imputation") +
+  ylab("Within-Subject SD") +
+  theme
 
-lowerpowerw <- intervals(m1w)$varStruct[,1] %>%
-  round(rnd2)
+wvarplot
 
-upperpowerw <- intervals(m1w)$varStruct[,3] %>%
-  round(rnd2)
+bvarplot <- modbvar %>%
+  ggplot(aes(.imp, bsd)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = uprbsd,
+                      ymin = lwrbsd)) +
+  facet_grid(sex ~ .) +
+  coord_flip() +
+  xlab("Imputation") +
+  ylab("Between-Subject SD") +
+  theme
 
-# Extract between-participant variance
-bvarm <- VarCorr(m1m)[1] %>%
-  as.numeric() %>%
-  round(rnd2)
+bvarplot
+```
 
-lowerbvarm <- intervals(m1m)$reStruct$id$lower ^ 2 %>%
-  round(rnd2)
-
-upperbvarm <- intervals(m1m)$reStruct$id$upper ^ 2 %>%
-  round(rnd2)
+```{r ageprop_hiv, echo = FALSE}
+hivbyage <- byimpsex %>%
+  unnest() %>%
+  filter(.imp == n & hiv == "Positive") %>%
+  group_by(sex, agepgroup) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2))
   
+hivplot <- hivbyage %>%
+  ggplot(aes(x = agepgroup, y = prop, fill = sex)) +
+  geom_bar(stat = "identity",
+           position = position_dodge()) +
+  xlab("Age group of partner") +
+  ylab("Proportion of relationships") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme
 
-bvarw <- VarCorr(m1w)[1] %>%
-  as.numeric() %>%
-  round(rnd2)
-
-lowerbvarw <- intervals(m1w)$reStruct$id$lower ^ 2 %>%
-  round(rnd2)
+hivplot
   
-upperbvarw <- intervals(m1w)$reStruct$id$upper ^ 2 %>%
-  round(rnd2)
+```
 
-# Extract residual variance
-wvarm <- VarCorr(m1m)[2] %>%
-  as.numeric() %>%
-  round(rnd2)
+```{r hivampfig setup, include = FALSE}
 
-lowerwvarm <- (intervals(m1m)$sigma[1]) ^ 2 %>%
-  round(rnd2)
+# Smaller datasets
+men <- df %>%
+  filter(sex == "Male" & hiv == "Positive")
 
-upperwvarm <- (intervals(m1m)$sigma[3]) ^ 2 %>%
-  round(rnd2)
+women <- df %>%
+  filter(sex == "Female" & hiv == "Positive")
 
-wvarw <- VarCorr(m1w)[2] %>%
-  as.numeric() %>%
-  round(rnd2)
 
-lowerwvarw <- (intervals(m1w)$sigma[1]) ^ 2 %>%
-  round(rnd2)
+# Now fit separate models for men and women
+modelmhiv <- lme(agep ~ age, 
+           data = men, 
+           random = ~1 | id,  
+           method = "REML")
 
-upperwvarw <- (intervals(m1w)$sigma[3]) ^ 2 %>%
-  round(rnd2)
+modelwhiv <- lme(agep ~ age, 
+           data = women, 
+           random = ~1 | id,
+           method = "REML")
+
+
+
+# Add the predicted values to the dataset
+menadd <- men %>%
+  mutate(pred = predict(modelmhiv, newdata = ., level = 0))
+
+womenadd <- women %>%
+  mutate(pred = predict(modelwhiv, newdata = ., level = 0)) 
+
+#Combine both datasets again
+comb <- bind_rows(menadd, womenadd) 
+  
+```
+
+```{r hivampfig, echo = FALSE}
+
+hivampfig <- comb %>%
+  ggplot(aes(x = age, y = pred)) +
+  geom_point(aes(x = age, 
+                 y = agep, 
+                 color = missagep), 
+             position = position_jitter(width = 0.75, height = 0.75),
+             size = 1) +
+  geom_abline(size = 1, 
+              aes(intercept = 0, slope = 1, linetype = "Same age"), 
+              show.legend = FALSE) +
+  geom_line(aes(linetype = "Population mean"), 
+            size = 1) +
+  facet_wrap(~ sex) + 
+  scale_y_continuous(name = "Partner's ages") +
+  scale_color_manual('Imputation Status', values = c('grey70', 'grey42')) +
+  scale_linetype_manual('Lines', values = c("Population mean" = 1, 'Same age' = 2)) +
+  xlab("Participant's age") +
+  guides(linetype = guide_legend(keywidth = 2, keyheight = 1)) +
+  theme
+
+hivampfig
 
 ```
+
 
 ```{r close, include = FALSE}
 # ====================================================

@@ -157,6 +157,59 @@ TidyCoxph <- function(m) {
   
 }
 
+# Creating a linear mixed model with random intercept for person
+# This is specifically for age-mixing patterns
+
+ampmodel <- function(df) {
+  lme(agep ~ agemean, 
+      data = df, 
+      random = ~1 | id,
+      method = "REML")
+}
+
+# Extracts the between subject SD from agemixing pattern model
+# Also upper and lower CI limits
+
+bvar <- function(model) {
+  
+  # Must take an nlme model object
+  # Outputs a dataframe 
+  
+  bsd <- VarCorr(model)[1, 2] %>%
+    as.numeric() %>%
+    round(2)
+  
+  lwrbsd <- intervals(model)$reStruct$id$lower  %>%
+    round(2)
+  
+  uprbsd <- intervals(model)$reStruct$id$upper  %>%
+    round(2)
+  
+  data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
+}
+
+# Extracts the within subject SD from agemixing pattern model
+# Also upper and lower CI limits
+
+wvar <- function(model) {
+  
+  # Must take an nlme model object
+  # Outputs a dataframe
+  
+  wsd <- VarCorr(model)[2, 2] %>%
+    as.numeric() %>%
+    round(2)
+  
+  lwrwsd <- (intervals(model)$sigma[1])  %>%
+    round(2)
+  
+  uprwsd <- intervals(model)$sigma[3]  %>%
+    round(2)
+  
+  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
+}
+
+
 # ===========================================================
 # Functions developed by Mike Li to take clmm() model objects
 # and derive fitted values with 95%CIs

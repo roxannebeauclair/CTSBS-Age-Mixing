@@ -1,0 +1,274 @@
+---
+title: "CTSBS Age-Mixing"
+author: "Roxanne Beauclair"
+date: '`r format(sys.date(), "%d %B %Y")`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# ===================
+# Relative file paths
+# ===================
+wd <- getwd()
+cdata <- paste0(wd, "/Data/Cleaned")
+
+imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
+
+fxn <- paste0(wd, "/Scripts/00-Functions.R")
+
+# ====================
+# Loading dependencies
+# ====================
+source(fxn)
+
+# magrittr: for use of %>% operator
+# tidyverse: for data management functions
+# mice: for MI
+
+
+InstallLoad("magrittr", "tidyverse", "mice",
+            "CALIBERrfimpute", "nlme", "modelr",
+            "splines", "mgcv", "broom")
+
+# =============
+# Load datasets
+# =============
+load(imputedata)
+
+# ====================
+# Set specific global options
+# ====================
+
+# Set theme for plots
+theme <- theme(axis.title.x = element_text(face = "bold", size = 10),
+             axis.text.x  = element_text(angle = 0, face = "bold",
+                                         colour = "black", size = 8),
+             axis.title.y = element_text(face = "bold", size = 10),
+             axis.text.y = element_text(angle = 0, 
+                                        face = "bold", 
+                                        colour = "black", 
+                                        hjust = 0.5,
+                                        size = 8),
+             plot.title = element_text(lineheight = .8, face = "bold"),
+             panel.grid.major = element_line(colour = 'grey82'),
+             panel.grid.minor = element_line(colour = NA),
+             panel.background = element_rect(fill = 'white'),
+             strip.background = element_rect(fill = 'white'),
+             strip.text = element_text(size = 8, face = "bold"),
+             legend.title = element_text(colour = "black", size = 9, face = "bold"),
+             legend.text = element_text(size = 8, face = "bold"),
+             plot.margin = unit(c(1.5,1,1,1), "lines"))
+
+
+# Initialize table counter
+options(show.signif.stars = F)
+```
+
+
+```{r ampfig setup, include = FALSE}
+
+imp <- max(as.integer(dfimp$.imp)) - 1
+set.seed(47621)
+n <- sample(1:imp, 1)
+
+# Smaller datasets
+df <- dfimp %>%
+  filter(.imp == n)%>%
+  mutate(agemean = age - round(mean(age), 2),
+         age2sd = age - round(2 * sd(age), 2)) %>%
+  select(id, age, agemean, age2sd, agep, sex,
+         missage, missagep) 
+
+men <- df %>%
+  filter(sex == "Male")
+
+women <- df %>%
+  filter(sex == "Female")
+
+
+# Now fit separate models for men and women
+# varPower variance structure for each model
+# The formula to calculate the weights for variance is |v|^(2*t)
+# Age can't be at 0 in varPower formula
+# Otherwise, it will evaluate to 0 variance for the first level (18 year olds)
+modelm1 <- lme(agep ~ age, 
+           data = men, 
+           random = ~1 | id,  
+           #weights = varPower(value = 0.5, form = ~agemean + 1),
+           method = "REML")
+
+modelw1 <- lme(agep ~ age, 
+           data = women, 
+           random = ~1 | id,  
+           #weights = varPower(value = 0.5, form = ~agemean + 1),
+           method = "REML")
+
+modelm2 <- gamm(agep ~ s(age), 
+           data = men, 
+           random = list(id = ~1))
+
+modelw2 <- gamm(agep ~ s(age), 
+           data = women, 
+           random = list(id = ~1))
+
+
+# Add the predicted values to the dataset
+menadd <- men %>%
+  mutate(pred.1 = predict(modelm1, newdata = ., level = 0),
+         pred.2 = predict(modelm2$gam, newdata = .),
+         resid.2 = residuals(modelm2$gam)) %>%
+  add_residuals(modelm1, var = "resid.1")
+
+womenadd <- women %>%
+  mutate(pred.1 = predict(modelw1, newdata = ., level = 0),
+         pred.2 = predict(modelw2$gam, newdata = .),
+         resid.2 = residuals(modelw2$gam))%>%
+  add_residuals(modelw1, var = "resid.1") 
+
+#Combine both datasets again
+comb <- bind_rows(menadd, womenadd) %>%
+  gather(key, value, -id:-missagep) %>%
+  separate(key, into = c("type", "model"), sep = "\\.")
+  
+
+```
+
+```{r ampfig, echo = FALSE}
+
+ampfig <- comb %>%
+  filter(type == "pred") %>%
+  ggplot(aes(x = age, y = value)) +
+  geom_point(aes(x = age, 
+                 y = agep, 
+                 color = missagep), 
+             position = position_jitter(width = 0.75, height = 0.75),
+             size = 1) +
+  geom_abline(size = 1, 
+              aes(intercept = 0, slope = 1, linetype = "Same age"), 
+              show.legend = FALSE) +
+  geom_line(aes(linetype = "Population mean"), 
+            size = 1) +
+  facet_wrap(model ~ sex) + 
+  scale_y_continuous(name = "Partner's ages") +
+  scale_color_manual('Imputation Status', values = c('grey70', 'grey42')) +
+  scale_linetype_manual('Lines', values = c("Population mean" = 1, 'Same age' = 2)) +
+  xlab("Participant's age") +
+  guides(linetype = guide_legend(keywidth = 2, keyheight = 1)) +
+  theme
+
+ampfig
+
+```
+
+```{r ampres, echo = FALSE}
+ampresfig1 <- comb %>%
+  filter(type == "resid") %>%
+  ggplot(aes(value)) +
+  geom_freqpoly(binwidth = 0.5) +
+  facet_grid(model ~ sex) +
+  theme
+
+ampresfig1
+
+ampresfig2 <- comb %>%
+  filter(type == "resid") %>%
+  ggplot(aes(x = age, y = value)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  geom_ref_line(h = 0) +
+  facet_grid(model ~ sex) + 
+  theme
+
+ampresfig2
+
+
+
+```
+
+
+```{r age mixing pattern, include = FALSE}
+
+# Extract slope/Beta-coefficent of the fixed effects from model
+slopem <- m1m$coefficients$fixed[2] %>%
+  round(rnd2)
+slopew <- m1w$coefficients$fixed[2] %>%
+  round(rnd2)
+
+# Extract power
+powerm <- (attributes(m1m$apVar)$Pars["varStruct.power"]) %>%
+  round(rnd2)
+
+lowerpowerm <- intervals(m1m)$varStruct[, 1] %>%
+  round(rnd2)
+
+upperpowerm <- intervals(m1m)$varStruct[, 3] %>%
+  round(rnd2)
+
+powerw <- (attributes(m1w$apVar)$Pars["varStruct.power"]) %>%
+  round(rnd2)
+
+lowerpowerw <- intervals(m1w)$varStruct[,1] %>%
+  round(rnd2)
+
+upperpowerw <- intervals(m1w)$varStruct[,3] %>%
+  round(rnd2)
+
+# Extract between-participant variance
+bvarm <- VarCorr(m1m)[1] %>%
+  as.numeric() %>%
+  round(rnd2)
+
+lowerbvarm <- intervals(m1m)$reStruct$id$lower ^ 2 %>%
+  round(rnd2)
+
+upperbvarm <- intervals(m1m)$reStruct$id$upper ^ 2 %>%
+  round(rnd2)
+  
+
+bvarw <- VarCorr(m1w)[1] %>%
+  as.numeric() %>%
+  round(rnd2)
+
+lowerbvarw <- intervals(m1w)$reStruct$id$lower ^ 2 %>%
+  round(rnd2)
+  
+upperbvarw <- intervals(m1w)$reStruct$id$upper ^ 2 %>%
+  round(rnd2)
+
+# Extract residual variance
+wvarm <- VarCorr(m1m)[2] %>%
+  as.numeric() %>%
+  round(rnd2)
+
+lowerwvarm <- (intervals(m1m)$sigma[1]) ^ 2 %>%
+  round(rnd2)
+
+upperwvarm <- (intervals(m1m)$sigma[3]) ^ 2 %>%
+  round(rnd2)
+
+wvarw <- VarCorr(m1w)[2] %>%
+  as.numeric() %>%
+  round(rnd2)
+
+lowerwvarw <- (intervals(m1w)$sigma[1]) ^ 2 %>%
+  round(rnd2)
+
+upperwvarw <- (intervals(m1w)$sigma[3]) ^ 2 %>%
+  round(rnd2)
+
+```
+
+```{r close, include = FALSE}
+# ====================================================
+# Detach libraries and remove objects from environment
+# ====================================================
+Vectorize(detach)(name = paste0("package:", c("tidyverse",
+                                              "CALIBERrfimpute",
+                                              "mice")), 
+                  unload = TRUE, 
+                  character.only = TRUE)
+
+rm(list=ls())
+
+```
+

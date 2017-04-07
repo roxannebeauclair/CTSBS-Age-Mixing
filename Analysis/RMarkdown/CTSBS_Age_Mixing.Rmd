@@ -13,6 +13,7 @@ wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSBS Age Mixin
 cdata <- paste0(wd, "/Data/Cleaned")
 
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
+imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
 
@@ -27,13 +28,14 @@ source(fxn)
 
 
 InstallLoad("magrittr", "tidyverse", "mice",
-            "CALIBERrfimpute", "nlme", "modelr",
-            "splines", "mgcv", "broom")
+            "nlme", "modelr",
+            "mgcv", "broom")
 
 # =============
 # Load datasets
 # =============
 load(imputedata)
+load(imputedatapart)
 
 # ====================
 # Set specific global options
@@ -73,9 +75,7 @@ n <- sample(1:imp, 1)
 
 # Smaller datasets
 df <- dfimp %>%
-  filter(.imp == n)%>%
-  mutate(agemean = age - round(mean(age), 2),
-         age2sd = age - round(2 * sd(age), 2)) %>%
+  filter(.imp == n) %>%
   select(id, age, agemean, age2sd, agep, sex,
          missage, missagep, hiv) 
 
@@ -183,21 +183,14 @@ ampresfig2
 byimpsex <- dfimp %>% 
   filter(.imp != 0) %>%
   group_by(.imp, sex) %>%
-  mutate(agemean = age - round(mean(age), 2),
-         agegroup = cut(age, 
-                        breaks = c(14, 24, 34, 44, 54, 70),
-                        labels = c("15-24", "25-34", "35-44", "45-54", "55-70")),
-         agepgroup = cut(agep, 
-                        breaks = c(10, 24, 34, 44, 54, 100),
-                        labels = c("<=24", "25-34", "35-44", "45-54", ">=55")))%>%
   nest()
 
-tidysummary <- byimpsex %>%
-  mutate(model = map(data, ampmodel),
-         modelsum = map(model, ~tidy(.x, effects = "fixed")),
-         bvar = map(model, bvar),
-         wvar = map(model, wvar))
- 
+tidysummary <- byimpsex %>% # A model will be applied to all imputations and sex
+  mutate(model = map(data, ampmodel), #ampmodel is function for nlme amp model
+         modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the B's and intercepts from the models
+         bvar = map(model, bvar), # Obtaining between subject variance using function bvar
+         wvar = map(model, wvar)) # Obtaining within subject variance using function wvar
+
 modslopeint <- tidysummary %>%
   unnest(modelsum, .drop = TRUE)
 
@@ -210,6 +203,7 @@ modbvar <- tidysummary %>%
 ```
 
 ```{r amp_model_plots, echo = FALSE}
+
 slopeplot <- modslopeint %>%
   filter(term == "agemean") %>%
   ggplot(aes(x = .imp, y = estimate)) +
@@ -223,8 +217,6 @@ slopeplot <- modslopeint %>%
   theme
 
 slopeplot
-
-
 
 interplot <- modslopeint %>%
   filter(term == "(Intercept)") %>%
@@ -291,35 +283,35 @@ hivplot
 ```{r hivampfig setup, include = FALSE}
 
 # Smaller datasets
-men <- df %>%
+menhiv <- df %>%
   filter(sex == "Male" & hiv == "Positive")
 
-women <- df %>%
+womenhiv <- df %>%
   filter(sex == "Female" & hiv == "Positive")
 
 
 # Now fit separate models for men and women
-modelmhiv <- lme(agep ~ age, 
-           data = men, 
+modelmhiv <- lme(agep ~ agemean, 
+           data = menhiv, 
            random = ~1 | id,  
            method = "REML")
 
-modelwhiv <- lme(agep ~ age, 
-           data = women, 
+modelwhiv <- lme(agep ~ agemean, 
+           data = womenhiv, 
            random = ~1 | id,
            method = "REML")
 
 
 
 # Add the predicted values to the dataset
-menadd <- men %>%
+menhivadd <- men %>%
   mutate(pred = predict(modelmhiv, newdata = ., level = 0))
 
-womenadd <- women %>%
+womenhivadd <- women %>%
   mutate(pred = predict(modelwhiv, newdata = ., level = 0)) 
 
 #Combine both datasets again
-comb <- bind_rows(menadd, womenadd) 
+comb <- bind_rows(menhivadd, womenhivadd) 
   
 ```
 
@@ -354,9 +346,8 @@ hivampfig
 # ====================================================
 # Detach libraries and remove objects from environment
 # ====================================================
-Vectorize(detach)(name = paste0("package:", c("tidyverse",
-                                              "CALIBERrfimpute",
-                                              "mice")), 
+Vectorize(detach)(name = paste0("package:", c("magrittr", "tidyverse", "mice",
+                                              "mgcv", "nlme", "modelr", "broom")), 
                   unload = TRUE, 
                   character.only = TRUE)
 

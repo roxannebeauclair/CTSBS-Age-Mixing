@@ -15,6 +15,7 @@ cdata <- paste0(wd, "/Data/Cleaned")
 excludedata <- paste0(cdata, "/ctsbs_excluded_data.rda")
 imputemids <- paste0(cdata, "/ctsbs_impute_mids.rda")
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
+imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
 
@@ -162,7 +163,7 @@ dfimp2 <- dfimp1 %>%
            round())
            
 # New measures for subsequent analyses
-dfimp <- dfimp2 %>%
+dfimp3 <- dfimp2 %>%
   mutate(agedif = ifelse(sex == "Male", age - agep, agep - age)) %>%
   group_by(.imp, id) %>%
   mutate(admean = round(mean(agedif, na.rm = T)),
@@ -175,15 +176,35 @@ dfimp <- dfimp2 %>%
                                        "Inconsistent")),
          partsf = round(mean(relsf, na.rm = T)),
          partdurweeks = round(mean(reldurweeks, na.rm = T))) %>%
-  ungroup() %>%
+  ungroup() 
+
+dfimp4 <- dfimp3 %>%
+  group_by(.imp, sex) %>% #Want the mean and sd of ages by gender
+  mutate(aveage = round(mean(age, na.rm = T)),
+         sdage = round(sd(age, na.rm = T), 2))
+
+dfimp <- dfimp4 %>%
   mutate(partconcur = as.factor(partconcur),
-         partcf = as.factor(partcf)) %>%
+         partcf = as.factor(partcf),
+         agemean = age - aveage,
+         age2sd = age - (2 * sdage), 
+         agegroup = cut(age,
+                        breaks = c(14, 24, 34, 44, 54, 70),
+                        labels = c("15-24", "25-34", "35-44", "45-54", "55-70")),
+         agepgroup = cut(agep, 
+                         breaks = c(10, 24, 34, 44, 54, 100),
+                         labels = c("<=24", "25-34", "35-44", "45-54", ">=55"))) %>%
   as.data.frame()
+
+# Create separate dataset that only has one row per participant and imputation
+partdfimp <- dfimp %>%
+  distinct(.imp, id, .keep_all = T)
 
 # =======================
 # Save imputed dataframes
 # =======================
 save(dfimp, file = imputedata)
+save(partdfimp, file = imputedatapart)
 
 # ====================================================
 # Detach libraries and remove objects from environment

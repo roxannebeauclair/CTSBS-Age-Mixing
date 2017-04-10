@@ -181,7 +181,8 @@ dfimp3 <- dfimp2 %>%
 dfimp4 <- dfimp3 %>%
   group_by(.imp, sex) %>% #Want the mean and sd of ages by gender
   mutate(aveage = round(mean(age, na.rm = T)),
-         sdage = round(sd(age, na.rm = T), 2))
+         sdage = round(sd(age, na.rm = T), 2)) %>%
+  ungroup()
 
 dfimp <- dfimp4 %>%
   mutate(partconcur = as.factor(partconcur),

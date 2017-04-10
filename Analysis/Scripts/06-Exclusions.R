@@ -37,8 +37,6 @@ load(concurdata)
 # Exclude participants
 # =====================
 
-# Age: missing
-# Gender: missing 
 # Sexorientation: homosexual or other
 df1 <- df %>%
   filter(sexorientation != "Both" | is.na(sexorientation)) %>%
@@ -53,7 +51,7 @@ df2 <- df1 %>%
            is.na(race))
 
 # Partner: no reported partner in previous year 
-df <- df1 %>%
+df <- df2 %>%
   filter(partner != 0) %>%
   droplevels()
 

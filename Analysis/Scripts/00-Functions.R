@@ -212,14 +212,35 @@ wvar <- function(model) {
 # Creating a zero-inflated negative binomial model for hiv status as outcome
 # Calculates RR
 # Adjusts for race, age and employment
+# Need to adjust the df for spline appropriately
 
-bwmodel <- function(df, edf) {
+bwmodel <- function(df) {
   
   df1 <- df %>%
     filter(relcount > 1) 
   
-  glm.nb(bridgewidth ~ hiv + splines::ns(age, edf) + race + job,
+  glm.nb(bridgewidth ~ hiv + splines::ns(age, df = 2) + race + job,
       data = df1)
+}
+
+# This function takes the model object form glm.nb and produces
+# for 50 values of age
+
+splinepreds <- function(df, mod) {
+  
+  grid <- df %>%
+    data_grid(age = seq_range(age, 50), 
+              .model = mod) 
+  
+  grid %>%
+    mutate(pred = predict(mod, 
+                          newdata = .,
+                          type = "response"),
+           se = predict(mod,
+                        newdata = .,
+                        type = "response",
+                        se.fit = T)[[2]])
+  
 }
 
 # ===========================================================

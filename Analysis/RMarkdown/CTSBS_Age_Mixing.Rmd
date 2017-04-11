@@ -12,6 +12,7 @@ output: html_document
 wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSBS Age Mixing/Analysis"
 cdata <- paste0(wd, "/Data/Cleaned")
 
+concurdata <- paste0(cdata, "/ctsbs_concur_added_data.rda")
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
 imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
 
@@ -36,6 +37,7 @@ InstallLoad("magrittr", "tidyverse", "mice",
 # =============
 load(imputedata)
 load(imputedatapart)
+load(concurdata)
 
 # ====================
 # Set specific global options
@@ -67,9 +69,49 @@ options(show.signif.stars = F)
 ```
 
 
-```{r ampfig setup, include = FALSE}
+```{r df_description, include = FALSE}
+# How many exclusions due to sexuality
+df1 <- df %>%
+  filter(sexorientation != "Both" | is.na(sexorientation)) %>%
+  filter((sex == "Male" & sexorientation == "Women") |
+           ((sex == "Female" & sexorientation == "Men")) |
+              (is.na(sex))) 
+
+n_sexuality <- nrow(df) - nrow(df1)
+
+# How many exclusions due to race
+df2 <- df1 %>%
+  filter(race == "Coloured" | 
+           race == "Black" |
+           is.na(race)) 
+
+n_race <- nrow(df1) - nrow(df2)
+
+# How many exclusions due to no parter reported
+df3 <- df2 %>%
+  filter(partner != 0) %>%
+  droplevels()
+
+n_nopart <- nrow(df2) - nrow(df3)
+
+# How many relationships left
+rels_left <- nrow(df3)
+
+# How many participants left
+parts_left <- df3 %>%
+  distinct(id) %>%
+  nrow()
 
 imp <- max(as.integer(dfimp$.imp)) - 1
+
+```
+
+<br>
+
+Before conducting imputations, I excluded participants who said there sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left`. Then I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "poly" method for our ordinal variables. 
+
+```{r ampfig setup, include = FALSE}
+
 set.seed(47621)
 n <- sample(1:imp, 1)
 
@@ -302,7 +344,6 @@ modelwhiv <- lme(agep ~ agemean,
            method = "REML")
 
 
-
 # Add the predicted values to the dataset
 menhivadd <- men %>%
   mutate(pred = predict(modelmhiv, newdata = ., level = 0))
@@ -338,6 +379,120 @@ hivampfig <- comb %>%
   theme
 
 hivampfig
+
+```
+
+```{r bw_hiv_setup}
+
+# Determine the degrees of freedom for the age spline in model
+# Randomly select one dataset
+set.seed(5555)
+n_bw <- sample(1:imp, 1)
+
+partdf <- partdfimp %>%
+  filter(.imp == n_bw)
+
+bwmodelm1 <- gam(bridgewidth ~ hiv + s(age) + job,
+                 data = partdf,
+                 family = nb()) #edf is rounded to 2
+
+
+# Exclude complete cases dataframe
+byimpsex <- partdfimp %>% 
+  filter(.imp != 0) %>%
+  group_by(.imp, sex) 
+
+# Summarize the median and IQR by sex and dataset
+# Among those with more than 1 partner
+bwbyimpsex <- byimpsex %>%
+  filter(relcount > 1) %>%
+  summarise(n = n(),
+            Median = median(bridgewidth),
+            lwr = summary(bridgewidth)[[2]],
+            upr = summary(bridgewidth)[[5]])
+
+# Nest all the datasets by sex and imputation
+impsex <- byimpsex %>% 
+  nest()
+ 
+tidysummary <- impsex %>% # A model will be applied to all imputations and sex
+  mutate(model = map(data, ~ bwmodel(.x, edf = 2)), #bwmodel is function for nb bw model
+         modelsum = map(model, tidy))
+
+bwmodcoef <- tidysummary %>%
+  unnest(modelsum, .drop = TRUE) %>%
+  ungroup() %>%
+  mutate(lwr = estimate - 2 * std.error,
+         upr = estimate + 2 * std.error,
+         irr = exp(estimate),
+         lwrirr = exp(lwr),
+         uprirr = exp(upr))
+
+
+# Pool coefficients with mice functions
+part <- partdfimp %>%
+  filter(relcount > 1) %>%
+  as.mids() 
+
+men <- part %>%
+  with(glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race + job,
+              subset = (sex == "Male"))) %>%
+  pool() %>%
+  summary() %>%
+  exp() %>%
+  round(2) 
+
+women <- part %>%
+  with(glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race + job,
+              subset = (sex == "Female"))) %>%
+  pool() %>%
+  summary() %>%
+  exp() %>%
+  round(2) 
+
+menEBRW <- men[2, 1]
+menEBRWlwr <- men[2, 6]
+menEBRWupr <- men[2, 7]
+womenEBRW <- women[2, 1]
+womenEBRWlwr <- women[2, 6]
+womenEBRWupr <- women[2, 7]
+```
+
+<br>
+
+The expected difference in log count of bridgewidth between those HIV positive and those HIV negative. The expected log count of bw for those with HIV is XX higher than those who are negative.
+
+```{r bw_density, include = FALSE}
+
+bwfig1 <- byimpsex %>%
+  ggplot(aes(x = bridgewidth, group = .imp)) +
+  geom_density(adjust = 2) +
+  facet_grid(hiv ~ sex) +
+  xlab("Bridgewidth") +
+  ylab("Density") +
+   #guides(color = guide_legend("Transmission Probability", size = 1)) +
+  theme
+
+bwfig1
+
+hivbwfig1 <- bwmodcoef %>%
+  filter(term == "hivPositive") %>%
+  ggplot(aes(x = .imp, irr)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = uprirr,
+                      ymin = lwrirr)) +
+  geom_hline(yintercept = 1) +
+  facet_grid(sex ~ .) +
+  # coord_flip() +
+  xlab("Imputation") +
+  ylab("Expected Bridge Width Ratio") +
+  scale_y_log10() +
+  annotate("text", x = 43, y = 7, label = c("Pooled EBWR: 1.52 (0.59-3.91)", 
+                                            "Pooled EBRW: 2.67 (1.14-6.23)")) +
+  theme
+
+hivbwfig1
+
 
 ```
 

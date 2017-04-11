@@ -209,6 +209,18 @@ wvar <- function(model) {
   data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
 }
 
+# Creating a zero-inflated negative binomial model for hiv status as outcome
+# Calculates RR
+# Adjusts for race, age and employment
+
+bwmodel <- function(df, edf) {
+  
+  df1 <- df %>%
+    filter(relcount > 1) 
+  
+  glm.nb(bridgewidth ~ hiv + splines::ns(age, edf) + race + job,
+      data = df1)
+}
 
 # ===========================================================
 # Functions developed by Mike Li to take clmm() model objects

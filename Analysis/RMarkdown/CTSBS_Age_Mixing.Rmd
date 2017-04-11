@@ -28,9 +28,9 @@ source(fxn)
 # mice: for MI
 
 
-InstallLoad("magrittr", "tidyverse", "mice",
-            "nlme", "modelr",
-            "mgcv", "broom")
+InstallLoad("magrittr", "MASS", "tidyverse", 
+            "mice","nlme", "modelr",
+            "mgcv", "broom", "visreg")
 
 # =============
 # Load datasets
@@ -108,7 +108,7 @@ imp <- max(as.integer(dfimp$.imp)) - 1
 
 <br>
 
-Before conducting imputations, I excluded participants who said there sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left`. Then I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "poly" method for our ordinal variables. 
+Before conducting imputations, I excluded participants who said their sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left` participants. Then I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "polr" method for our ordinal variables. 
 
 ```{r ampfig setup, include = FALSE}
 
@@ -382,7 +382,7 @@ hivampfig
 
 ```
 
-```{r bw_hiv_setup}
+```{r bw_hiv_setup, include = FALSE}
 
 # Determine the degrees of freedom for the age spline in model
 # Randomly select one dataset
@@ -416,8 +416,9 @@ impsex <- byimpsex %>%
   nest()
  
 tidysummary <- impsex %>% # A model will be applied to all imputations and sex
-  mutate(model = map(data, ~ bwmodel(.x, edf = 2)), #bwmodel is function for nb bw model
-         modelsum = map(model, tidy))
+  mutate(model = map(data, ~ bwmodel(.x)), #bwmodel is function for nb bw model
+         modelsum = map(model, tidy),
+         splinepred = map2(data, model, splinepreds))
 
 bwmodcoef <- tidysummary %>%
   unnest(modelsum, .drop = TRUE) %>%
@@ -428,6 +429,8 @@ bwmodcoef <- tidysummary %>%
          lwrirr = exp(lwr),
          uprirr = exp(upr))
 
+bwmodpred <- tidysummary %>%
+  unnest(splinepred, .drop = TRUE)
 
 # Pool coefficients with mice functions
 part <- partdfimp %>%
@@ -443,26 +446,32 @@ men <- part %>%
   round(2) 
 
 women <- part %>%
-  with(glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race + job,
+  with(glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race + job, 
               subset = (sex == "Female"))) %>%
   pool() %>%
   summary() %>%
   exp() %>%
   round(2) 
 
-menEBRW <- men[2, 1]
-menEBRWlwr <- men[2, 6]
-menEBRWupr <- men[2, 7]
-womenEBRW <- women[2, 1]
-womenEBRWlwr <- women[2, 6]
-womenEBRWupr <- women[2, 7]
+menEBWR <- men[2, 1]
+menEBWRlwr <- men[2, 6]
+menEBWRupr <- men[2, 7]
+womenEBWR <- women[2, 1]
+womenEBWRlwr <- women[2, 6]
+womenEBWRupr <- women[2, 7]
 ```
 
 <br>
 
 The expected difference in log count of bridgewidth between those HIV positive and those HIV negative. The expected log count of bw for those with HIV is XX higher than those who are negative.
 
-```{r bw_density, include = FALSE}
+```{r bw_density, echo = FALSE}
+ticks <- c(0.5, 1.0, 2.0, 4.0)
+
+label <- c(
+  paste0("Pooled EBWR: ", menEBWR, "(", menEBWRlwr, "-", menEBWRupr, ")"),
+  paste0("Pooled EBWR: ", womenEBWR, "(", womenEBWRlwr, "-", womenEBWRupr, ")")
+)
 
 bwfig1 <- byimpsex %>%
   ggplot(aes(x = bridgewidth, group = .imp)) +
@@ -470,30 +479,36 @@ bwfig1 <- byimpsex %>%
   facet_grid(hiv ~ sex) +
   xlab("Bridgewidth") +
   ylab("Density") +
-   #guides(color = guide_legend("Transmission Probability", size = 1)) +
   theme
 
 bwfig1
 
-hivbwfig1 <- bwmodcoef %>%
+hivbwfig <- bwmodcoef %>%
   filter(term == "hivPositive") %>%
   ggplot(aes(x = .imp, irr)) +
+   geom_hline(yintercept = 1, 
+             color = "blue") +
   geom_point() +
   geom_pointrange(aes(ymax = uprirr,
                       ymin = lwrirr)) +
-  geom_hline(yintercept = 1) +
   facet_grid(sex ~ .) +
-  # coord_flip() +
   xlab("Imputation") +
   ylab("Expected Bridge Width Ratio") +
-  scale_y_log10() +
-  annotate("text", x = 43, y = 7, label = c("Pooled EBWR: 1.52 (0.59-3.91)", 
-                                            "Pooled EBRW: 2.67 (1.14-6.23)")) +
+  scale_y_log10(breaks = ticks) +
+  annotate("text", x = 40, y = 6.5, label = label) +
   theme
 
-hivbwfig1
+hivbwfig
 
+agebwfig <- bwmodpred %>%
+  ggplot(aes(x = age, y = pred, group = .imp)) +
+  geom_line() +
+  facet_grid(. ~ sex) +
+  xlab("Age") +
+  ylab("Expected Bridge Width") +
+  theme
 
+agebwfig
 ```
 
 
@@ -502,7 +517,8 @@ hivbwfig1
 # Detach libraries and remove objects from environment
 # ====================================================
 Vectorize(detach)(name = paste0("package:", c("magrittr", "tidyverse", "mice",
-                                              "mgcv", "nlme", "modelr", "broom")), 
+                                              "mgcv", "nlme", "modelr", "broom",
+                                              "MASS")), 
                   unload = TRUE, 
                   character.only = TRUE)
 

@@ -42,12 +42,13 @@ load(excludedata)
 # =======================================
 
 dfmice <- df %>%
+  mutate(start = as.factor(ifelse(!is.na(start), "Last year", "Before last year"))) %>%
   select(id, age, sex, race, 
          job, grade, hiv, relid, 
          relseq, relcount, pt, slept, 
          agep, live, otherpart, ongoing, 
          relconcur, relsf, relcf, reldurweeks,
-         easy, private, truth) %>%
+         easy, private, truth, start) %>%
   mutate(missage = factor(ifelse(is.na(age), "Imputed", "Observed")),
          missagep = factor(ifelse(is.na(agep), "Imputed", "Observed")),
          misshiv = factor(ifelse(is.na(hiv), "Imputed", "Observed")),
@@ -67,7 +68,7 @@ meth <- c("", "rfcont", "rfcat", "rfcat",
           "rfcat", "rfcont", "polr", "rfcont",
           "polr", "polr", "polr", "",
           "", "", "", "",
-          "", "")
+          "", "", "")
 
 # ====================
 # Get predictor matrix

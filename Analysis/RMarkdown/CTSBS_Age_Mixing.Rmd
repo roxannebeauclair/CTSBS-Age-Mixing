@@ -150,7 +150,7 @@ modelw2 <- gamm(agep ~ s(agemean),
            random = list(id = ~1))
 
 
-# Add the predicted values to the dataset
+# Add the predicted values and residuals to the dataset
 menadd <- men %>%
   mutate(pred.1 = predict(modelm1, newdata = ., level = 0),
          pred.2 = predict(modelm2$gam, newdata = .),
@@ -171,7 +171,7 @@ comb <- bind_rows(menadd, womenadd) %>%
 ```
 
 ```{r ampfig, echo = FALSE}
-
+# Figure visualizing the age mixing pattern
 ampfig <- comb %>%
   filter(type == "pred") %>%
   ggplot(aes(x = age, y = value)) +
@@ -198,6 +198,7 @@ ampfig
 ```
 
 ```{r ampres, echo = FALSE}
+# Visualizing spread of residuals for lm and gam model
 ampresfig1 <- comb %>%
   filter(type == "resid") %>%
   ggplot(aes(value)) +
@@ -207,6 +208,7 @@ ampresfig1 <- comb %>%
 
 ampresfig1
 
+# Visualizing pattern of residuals for lm and gam model
 ampresfig2 <- comb %>%
   filter(type == "resid") %>%
   ggplot(aes(x = age, y = value)) +
@@ -222,23 +224,31 @@ ampresfig2
 
 ```{r amp_all, include = FALSE}
 
+# Create a dataset that nests all of the datasets according to
+# gender and imputation. So with 2 genders and 50 imps, there will be
+# 100 groups/dataframes
 byimpsex <- dfimp %>% 
   filter(.imp != 0) %>%
   group_by(.imp, sex) %>%
   nest()
 
+# Produce nice summary of the models
 tidysummary <- byimpsex %>% # A model will be applied to all imputations and sex
   mutate(model = map(data, ampmodel), #ampmodel is function for nlme amp model
          modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the B's and intercepts from the models
          bvar = map(model, bvar), # Obtaining between subject variance using function bvar
          wvar = map(model, wvar)) # Obtaining within subject variance using function wvar
 
+# Unnest tidy summary for data on slope and intercept
+# of all the models
 modslopeint <- tidysummary %>%
   unnest(modelsum, .drop = TRUE)
 
+# Unnest tidy summary for data on within individual variance
 modwvar <- tidysummary %>%
   unnest(wvar, .drop = TRUE)
 
+# Uneest tidy summary for data on between individual variance
 modbvar <- tidysummary %>%
   unnest(bvar, .drop = TRUE)
 
@@ -246,6 +256,8 @@ modbvar <- tidysummary %>%
 
 ```{r amp_model_plots, echo = FALSE}
 
+# Plot all of the beta's for age mixing pattern in 
+# each of the 100 datasets (by imputation and gender)
 slopeplot <- modslopeint %>%
   filter(term == "agemean") %>%
   ggplot(aes(x = .imp, y = estimate)) +
@@ -260,6 +272,8 @@ slopeplot <- modslopeint %>%
 
 slopeplot
 
+# Plot all of the intercepts for age mixing pattern in 
+# each of the 100 datasets (by imputation and gender)
 interplot <- modslopeint %>%
   filter(term == "(Intercept)") %>%
   ggplot(aes(.imp, estimate)) +
@@ -274,6 +288,8 @@ interplot <- modslopeint %>%
 
 interplot
 
+# Plot each of the residual variances for age mixing pattern
+# in each of the 100 datasets (by imputation and gender)
 wvarplot <- modwvar %>%
   ggplot(aes(.imp, wsd)) +
   geom_point() +
@@ -287,6 +303,8 @@ wvarplot <- modwvar %>%
 
 wvarplot
 
+# Plot each of the between subject variances for age mixing pattern
+# in each of the 100 datasets (by imputation and gender)
 bvarplot <- modbvar %>%
   ggplot(aes(.imp, bsd)) +
   geom_point() +
@@ -302,14 +320,19 @@ bvarplot
 ```
 
 ```{r ageprop_hiv, echo = FALSE}
+# Create dataframe that summarizes the proportion of relationships
+# in different partner age groups for people who are HIV
+# positive
 hivbyage <- byimpsex %>%
   unnest() %>%
+  ungroup() %>%
   filter(.imp == n & hiv == "Positive") %>%
   group_by(sex, agepgroup) %>%
   summarise(n = n()) %>%
   mutate(prop = round((n / sum(n)) * 100, 2))
-  
-hivplot <- hivbyage %>%
+
+# Barplot of fraction of relationships in different partner age groups  
+hivageplot <- hivbyage %>%
   ggplot(aes(x = agepgroup, y = prop, fill = sex)) +
   geom_bar(stat = "identity",
            position = position_dodge()) +
@@ -318,11 +341,13 @@ hivplot <- hivbyage %>%
   scale_fill_brewer(palette = "Dark2") +
   theme
 
-hivplot
+hivageplot
   
 ```
 
 ```{r hivampfig setup, include = FALSE}
+# This chunk sets up the data in order to visualize the age 
+# mixing pattern among those who are HIV positive
 
 # Smaller datasets
 menhiv <- df %>%
@@ -357,7 +382,8 @@ comb <- bind_rows(menhivadd, womenhivadd)
 ```
 
 ```{r hivampfig, echo = FALSE}
-
+# Visualizing the age mixing pattern among those
+# who are HIV positive
 hivampfig <- comb %>%
   ggplot(aes(x = age, y = pred)) +
   geom_point(aes(x = age, 
@@ -402,7 +428,7 @@ byimpsex <- partdfimp %>%
   filter(.imp != 0) %>%
   group_by(.imp, sex) 
 
-# Summarize the median and IQR by sex and dataset
+# Summarize the median and IQR of BW by sex and dataset
 # Among those with more than 1 partner
 bwbyimpsex <- byimpsex %>%
   filter(relcount > 1) %>%
@@ -416,10 +442,12 @@ impsex <- byimpsex %>%
   nest()
  
 tidysummary <- impsex %>% # A model will be applied to all imputations and sex
-  mutate(model = map(data, ~ bwmodel(.x)), #bwmodel is function for nb bw model
-         modelsum = map(model, tidy),
-         splinepred = map2(data, model, splinepreds))
+  mutate(model = map(data, ~ bwmodel(.x)), # bwmodel is function for nb bw model, model as stored as var in nested df
+         modelsum = map(model, tidy), # Create tidy summary of each model and store as modelsum var in nested df
+         splinepred = map2(data, model, splinepreds)) # Create predictions across dif vals of age (our spline var) and store as
+                                                      # var in our nested df
 
+# Unnest the tidy summary, to see the tidy model estimates for each model
 bwmodcoef <- tidysummary %>%
   unnest(modelsum, .drop = TRUE) %>%
   ungroup() %>%
@@ -429,18 +457,22 @@ bwmodcoef <- tidysummary %>%
          lwrirr = exp(lwr),
          uprirr = exp(upr))
 
+# Unnest the tidy summary, to see the tidy model predictions for values of age
+# for each model
 bwmodpred <- tidysummary %>%
   unnest(splinepred, .drop = TRUE)
 
-# Pool coefficients with mice functions
-part <- partdfimp %>%
-  filter(relcount > 1) %>%
-  as.mids() 
+# Now we want to produce a pooled beta for HIV according to 
+# Rubin's rules. To do this we use mice functions
+
+part <- partdfimp %>% # Take original participant-level imputed df
+  filter(relcount > 1) %>% # Take out participants who had more than one rel
+  as.mids() # Create mids object
 
 men <- part %>%
   with(glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race + job,
               subset = (sex == "Male"))) %>%
-  pool() %>%
+  pool() %>% # Pool coefficients according to Rubin's Rules
   summary() %>%
   exp() %>%
   round(2) 
@@ -448,14 +480,14 @@ men <- part %>%
 women <- part %>%
   with(glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race + job, 
               subset = (sex == "Female"))) %>%
-  pool() %>%
+  pool() %>% # Pool according to Rubin's Rules
   summary() %>%
   exp() %>%
   round(2) 
 
-menEBWR <- men[2, 1]
-menEBWRlwr <- men[2, 6]
-menEBWRupr <- men[2, 7]
+menEBWR <- men[2, 1] # Extract HIV EBWR 
+menEBWRlwr <- men[2, 6] # Extract HIV lower CI limit
+menEBWRupr <- men[2, 7] # Extract HIV upper CI limit
 womenEBWR <- women[2, 1]
 womenEBWRlwr <- women[2, 6]
 womenEBWRupr <- women[2, 7]
@@ -473,6 +505,7 @@ label <- c(
   paste0("Pooled EBWR: ", womenEBWR, "(", womenEBWRlwr, "-", womenEBWRupr, ")")
 )
 
+# Check spread of bridgwidths for each grouped dataset
 bwfig1 <- byimpsex %>%
   ggplot(aes(x = bridgewidth, group = .imp)) +
   geom_density(adjust = 2) +
@@ -483,6 +516,8 @@ bwfig1 <- byimpsex %>%
 
 bwfig1
 
+# Plot all the EBWR's for each imputed dataset by sex
+# Annotate with the pooled coefficient from above
 hivbwfig <- bwmodcoef %>%
   filter(term == "hivPositive") %>%
   ggplot(aes(x = .imp, irr)) +
@@ -500,6 +535,8 @@ hivbwfig <- bwmodcoef %>%
 
 hivbwfig
 
+# Plot expected BW's for different values of age (or spline variable)
+# Spaghetti plot to show each line for dataset by gender
 agebwfig <- bwmodpred %>%
   ggplot(aes(x = age, y = pred, group = .imp)) +
   geom_line() +

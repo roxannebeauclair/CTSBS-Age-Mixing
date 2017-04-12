@@ -224,7 +224,8 @@ bwmodel <- function(df) {
 }
 
 # This function takes the model object form glm.nb and produces
-# for 50 values of age
+# predictions for 50 values of age and then stores and returns
+# as a tidy df
 
 splinepreds <- function(df, mod) {
   

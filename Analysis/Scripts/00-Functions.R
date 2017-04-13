@@ -209,17 +209,18 @@ wvar <- function(model) {
   data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
 }
 
-# Creating a zero-inflated negative binomial model for hiv status as outcome
+# Creating a  negative binomial model for hiv status as outcome
 # Calculates RR
-# Adjusts for race, age and employment
+# Adjusts for race, age 
 # Need to adjust the df for spline appropriately
+# For both male and female models the EDF was 2
 
 bwmodel <- function(df) {
   
   df1 <- df %>%
     filter(relcount > 1) 
   
-  glm.nb(bridgewidth ~ hiv + splines::ns(age, df = 2) + race + job,
+  glm.nb(bridgewidth ~ hiv + splines::ns(age, df = 2) + race,
       data = df1)
 }
 
@@ -227,7 +228,7 @@ bwmodel <- function(df) {
 # predictions for 50 values of age and then stores and returns
 # as a tidy df
 
-splinepreds <- function(df, mod) {
+nbsplinepreds <- function(df, mod) {
   
   grid <- df %>%
     data_grid(age = seq_range(age, 50), 
@@ -242,6 +243,39 @@ splinepreds <- function(df, mod) {
                         type = "response",
                         se.fit = T)[[2]])
   
+}
+
+lmesplinepreds <- function(df, mod) {
+
+  grid <- expand.grid(age = 15:70, 
+                hiv = "Negative",
+                race = "Black")
+  
+  grid %>%
+    mutate(pred = predict(mod, 
+                          newdata = .,
+                          level = 0))
+
+}
+
+# This function creates a model that regresses age differences
+# on HIV.
+# If it is a male df, then the df = 4 for age
+# If it is a female df, then linear age term
+
+admodel <- function(df, gendervar) {
+  
+  if(gendervar == "Male") {
+    lme(agedif ~ hiv + splines::ns(age, df = 4) + race, 
+        data = df, 
+        random = ~1 | id,
+        method = "REML")
+  } else {
+    lme(agedif ~ hiv + age + race, 
+        data = df, 
+        random = ~1 | id,
+        method = "REML")
+  }
 }
 
 # ===========================================================

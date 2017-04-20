@@ -1,7 +1,7 @@
 ---
 title: "CTSBS Age-Mixing"
-author: "Roxanne Beauclair"
-date: '`r format(Sys.Date(), "%d %B %Y")`'
+author: "Roxanne beauclair"
+date: '`r format(Sys.Date(), "%d %b %Y")`'
 output: html_document
 ---
 
@@ -9,7 +9,7 @@ output: html_document
 # ===================
 # Relative file paths
 # ===================
-wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSBS Age Mixing/Analysis"
+wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSbS Age Mixing/Analysis"
 cdata <- paste0(wd, "/Data/Cleaned")
 
 concurdata <- paste0(cdata, "/ctsbs_concur_added_data.rda")
@@ -29,8 +29,8 @@ source(fxn)
 
 
 InstallLoad("magrittr", "MASS", "tidyverse", 
-            "mice","nlme", "modelr",
-            "mgcv", "broom")
+            "mice","nlme", "lme4", "modelr",
+            "mgcv", "broom", "splines")
 
 # =============
 # Load datasets
@@ -72,7 +72,7 @@ options(show.signif.stars = F)
 ```{r df_description, include = FALSE}
 # How many exclusions due to sexuality
 df1 <- df %>%
-  filter(sexorientation != "Both" | is.na(sexorientation)) %>%
+  filter(sexorientation != "both" | is.na(sexorientation)) %>%
   filter((sex == "Male" & sexorientation == "Women") |
            ((sex == "Female" & sexorientation == "Men")) |
               (is.na(sex))) 
@@ -105,7 +105,7 @@ imp <- max(as.integer(dfimp$.imp)) - 1
 
 # How many relationships started in the last year
 df4 <- df3 %>%
-  mutate(start = as.factor(ifelse(!is.na(start), "Last year", "Before last year"))) %>%
+  mutate(start = as.factor(ifelse(!is.na(start), "Last year", "before last year"))) %>%
   filter(start == "Last year")
 
 rels_last_year <- nrow(df4)
@@ -116,7 +116,7 @@ rm(df, df1, df2, df3, df4)
 
 <br>
 
-Before conducting imputations, I excluded participants who said their sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left` participants. Of those relationships `r rels_last_year` started in the 12 months preceeding the survey. I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "polr" method for our ordinal variables. 
+Before conducting imputations, I excluded participants who said their sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Participants who had missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left` participants. Of those relationships `r rels_last_year` started in the 12 months preceeding the survey. I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "polr" method for our ordinal variables. 
 
 ```{r amp_setup, include = FALSE}
 
@@ -212,7 +212,7 @@ ampfig
 
 <br>
 
-###### **Figure 2. 2A visualizes the spread of the residuals for the different models. Model 1 is the linear mixed effect model with age as a linear term, while Model 2 is a GAMM. 2B visualizes the pattern of residuals for the lme and gamm. In both models there appears to be constant variance**
+###### **Figure 2. 2A visualizes the spread of the residuals for the different models. Model 1 is the linear mixed effect model with age as a linear term, while Model 2 is a GAMM. 2b visualizes the pattern of residuals for the lme and gamm. In both models there appears to be constant variance**
 
 <br>
 
@@ -254,7 +254,7 @@ impsexamp <- dfimp %>%
 # Produce nice summary of the models
 tidysumamp <- impsexamp %>% # A model will be applied to all imputations and sex
   mutate(model = map(data, ampmodel), #ampmodel is function for nlme amp model
-         modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the B's and intercepts from the models
+         modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the b's and intercepts from the models
          bvar = map(model, bvar), # Obtaining between subject variance using function bvar
          wvar = map(model, wvar)) # Obtaining within subject variance using function wvar
 
@@ -338,7 +338,7 @@ bvarplot <- modbvar %>%
   facet_grid(sex ~ .) +
   coord_flip() +
   xlab("Imputation") +
-  ylab("Between-Subject SD") +
+  ylab("between-Subject SD") +
   theme
 
 bvarplot
@@ -362,7 +362,7 @@ hivbyage <- impsexamp %>%
   summarise(n = n()) %>%
   mutate(prop = round((n / sum(n)) * 100, 2))
 
-# Barplot of fraction of relationships in different partner age groups  
+# barplot of fraction of relationships in different partner age groups  
 hivageplot <- hivbyage %>%
   ggplot(aes(x = agepgroup, y = prop, fill = sex)) +
   geom_bar(stat = "identity",
@@ -481,7 +481,7 @@ impsex <- partdfimp %>%
   filter(.imp != 0) %>%
   group_by(.imp, sex) 
 
-# Summarize the median and IQR of BW by sex and dataset
+# Summarize the median and IQR of bW by sex and dataset
 # Among those with more than 1 partner
 bwbyimpsex <- impsex %>%
   filter(relcount > 1) %>%
@@ -523,16 +523,20 @@ part <- partdfimp %>% # Take original participant-level imputed df
   as.mids() # Create mids object
 
 bwmodpoolm <- part %>%
-  with(glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race,
-              subset = (sex == "Male"))) %>%
+  with(
+    glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race,
+              subset = (sex == "Male"))
+    ) %>%
   pool() %>% # Pool coefficients according to Rubin's Rules
   summary() %>%
   exp() %>%
   round(2) 
 
 bwmodpoolw <- part %>%
-  with(glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race, 
-              subset = (sex == "Female"))) %>%
+  with(
+    glm.nb(bridgewidth ~ hiv + splines::ns(age, 2) + race, 
+              subset = (sex == "Female"))
+    ) %>%
   pool() %>% # Pool according to Rubin's Rules
   summary() %>%
   exp() %>%
@@ -559,7 +563,7 @@ bwfig <- impsex %>%
   ggplot(aes(x = bridgewidth, group = .imp)) +
   geom_density(adjust = 2) +
   facet_grid(hiv ~ sex) +
-  xlab("Bridgewidth") +
+  xlab("bridgewidth") +
   ylab("Density") +
   theme
 
@@ -568,11 +572,11 @@ bwfig
 
 <br>
 
-###### **Figure 7. Model coefficients for relationship between HIV and bridge width. Results from negative binomial models with bridge width as the outcome. This is only among participants who reported more than 1 relationship in the previous year**
+###### **Figure 7. Model coefficients for relationship between HIV and bridge width. Results from negative binomial models with bridge width as the outcome. This is only among participants who reported more than 1 relationship in the previous year. Models adjust for race and age.**
 
 <br>
 
-```{r EBWR_fig, echo = FALSE}
+```{r b_fig, echo = FALSE}
 
 ticks <- c(0.5, 1.0, 2.0, 4.0)
 
@@ -581,7 +585,7 @@ label <- c(
   paste0("Pooled EBWR: ", womenEBWR, "(", womenEBWRlwr, "-", womenEBWRupr, ")")
 )
 
-# Plot all the EBWR's for each imputed dataset by sex
+# Plot all the b's for each imputed dataset by sex
 # Annotate with the pooled coefficient from above
 bwhivfig <- bwmodcoef %>%
   filter(term == "hivPositive") %>%
@@ -607,7 +611,7 @@ Overall, among men the expected count of bridge widths for those with HIV was `r
 
 <br>
 
-###### **Figure 8. Expected bridge widths for different values of age (the spline variable), by gender. Each line represents a different imputed dataset.**
+###### **Figure 8. Expected bridge widths for different values of age (the spline variable), by gender. Each line represents a different imputed dataset. These curves represent typical values of race (black) and hiv status (negative)**
 
 <br>
 
@@ -636,6 +640,8 @@ n_ad <- sample(1:imp, 1)
 
 # Take out other datasets and relationships that started
 # more than 12 months ago
+# Ultimately we want to know that the participant had an HIV status 
+# before they started the relationship
 dfad <- dfimp %>%
   filter(.imp == n_ad, 
          start == "Last year")
@@ -676,10 +682,55 @@ impsexad <- dfimp %>%
 tidysumad <- impsexad %>%
   mutate(model = map2(data, sex, admodel),
          modelsum = map(model, ~tidy(.x, effects = "fixed")),
-         splinepred = map2(data, model, lmesplinepreds))
+         splinepred = map(model, lmesplinepreds))
 
 tidysumad
 
+# Unnest the tidy summary, to see the tidy model estimates for each model
+admodcoef <- tidysumad %>%
+  unnest(modelsum, .drop = TRUE) %>%
+  ungroup() %>%
+  mutate(lwr = estimate - 2 * std.error,
+         upr = estimate + 2 * std.error)
+
+# Unnest the tidy summary, to see the tidy model predictions for values of age
+# for each model
+admodpred <- tidysumad %>%
+  unnest(splinepred, .drop = TRUE)
+
+# Now we want to produce a pooled beta for HIV according to 
+# Rubin's rules. To do this we use mice functions
+
+rels <- dfimp %>% # Take original rel-level imputed df
+  filter(start == "Last year") %>% # Only relationships starting last year
+  as.mids() # Create mids object
+
+admodpoolm <- rels %>%
+  with(
+    lmer(agedif ~ hiv + ns(age, df = 4) + race + (1 | id),
+        subset = sex == "Male")
+    ) %>%
+  pool() %>% # Pool coefficients according to Rubin's Rules
+  summary() %>%
+  round(2) 
+
+admodpoolw <- rels %>%
+  with(
+    lmer(agedif ~ hiv + age + race + (1 | id),
+        subset = sex == "Female")
+    ) %>%
+  pool() %>% # Pool coefficients according to Rubin's Rules
+  summary() %>%
+  round(2) 
+
+
+
+menB <- admodpoolm[2, 1] # Extract HIV B 
+menBlwr <- admodpoolm[2, 6] # Extract HIV lower CI limit
+menBupr <- admodpoolm[2, 7] # Extract HIV upper CI limit
+womenB <- admodpoolw[2, 1]
+womenBlwr <- admodpoolw[2, 6]
+womenBupr <- admodpoolw[2, 7]
 ```
 
 <br>
@@ -688,16 +739,68 @@ tidysumad
 
 <br>
 
-```{r ad_hiv_fig, echo = FALSE}
+```{r ad_fig, echo = FALSE}
 
-adhivfig <- impsexad %>%
+adfig <- impsexad %>%
   unnest() %>%
   ggplot(aes(x = agedif, group = .imp)) +
   geom_density() +
   facet_grid(. ~ sex) +
   theme
 
-adhivfig
+adfig
+
+```
+
+<br>
+
+###### **Figure 10. Effect of participant HIV on age-differences in relationships, stratified by gender. Beta-coefficients are from linear mixed effects models with a random intercept for participant. This is for only relationships starting in the previous 12 months (n = 399). Models adjust for race and age.**
+
+<br>
+
+```{r ad_hiv_fig, echo = FALSE}
+
+label <- c(
+  paste0("Pooled B-Coefficient: ", menB, "(", menBlwr, " - ", menBupr, ")"),
+  paste0("Pooled B-Coefficient: ", womenB, "(", womenBlwr, " - ", womenBupr, ")")
+)
+
+# Plot all the b's for each imputed dataset by sex
+# Annotate with the pooled coefficient from above
+adhivfig <- admodcoef %>%
+  filter(term == "hivPositive") %>%
+  ggplot(aes(x = .imp, estimate)) +
+   geom_hline(yintercept = 0, 
+             color = "blue") +
+  geom_point() +
+  geom_pointrange(aes(ymax = upr,
+                      ymin = lwr)) +
+  facet_grid(sex ~ .) +
+  xlab("Imputation") +
+  ylab("B-Coefficient") +
+  annotate("text", x = 38, y = -9, label = label) +
+  theme
+
+adhivfig  
+  
+  
+```
+<br>
+
+###### **Figure 11. Predicted age-differences for different ages of the participant, stratified by gender. The predictions are from linear mixed effects models with a random intercept for participant. This is for only relationships starting in the previous 12 months (n = 399). Models adjust for race and hiv status. The model for men contained a natural spline for age with 4 degrees of freedom as indicated by a preliminary GAMM.**
+
+<br>
+```{r ad_age_fig, echo = FALSE}
+
+adagefig <- admodpred %>%
+  ggplot(aes(x = age, y = pred, group = .imp)) +
+  geom_line() +
+  facet_grid(. ~ sex) +
+  xlab("Age") +
+  ylab("Age difference") +
+  theme
+
+adagefig
 
 ```
 

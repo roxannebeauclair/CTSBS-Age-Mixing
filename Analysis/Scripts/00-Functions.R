@@ -245,7 +245,7 @@ nbsplinepreds <- function(df, mod) {
   
 }
 
-lmesplinepreds <- function(df, mod) {
+lmesplinepreds <- function(mod) {
 
   grid <- expand.grid(age = 15:70, 
                 hiv = "Negative",
@@ -254,7 +254,7 @@ lmesplinepreds <- function(df, mod) {
   grid %>%
     mutate(pred = predict(mod, 
                           newdata = .,
-                          level = 0))
+                          re.form = NA))
 
 }
 
@@ -266,15 +266,11 @@ lmesplinepreds <- function(df, mod) {
 admodel <- function(df, gendervar) {
   
   if(gendervar == "Male") {
-    lme(agedif ~ hiv + splines::ns(age, df = 4) + race, 
-        data = df, 
-        random = ~1 | id,
-        method = "REML")
+    lmer(agedif ~ hiv + splines::ns(age, df = 4) + race + (1 | id), 
+        data = df)
   } else {
-    lme(agedif ~ hiv + age + race, 
-        data = df, 
-        random = ~1 | id,
-        method = "REML")
+    lmer(agedif ~ hiv + age + race + (1 | id), 
+        data = df)
   }
 }
 

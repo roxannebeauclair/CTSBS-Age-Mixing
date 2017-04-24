@@ -108,6 +108,11 @@ get_legend<-function(myggplot){
   return(legend)
 }
 
+# ===========================
+# Functions for SIHR analysis
+# ===========================
+
+
 # Convert clmm() model components to a tidy dataframe
 TidyCLMM <- function(m) {
   
@@ -155,123 +160,6 @@ TidyCoxph <- function(m) {
   
   return(ordf)
   
-}
-
-# Creating a linear mixed model with random intercept for person
-# This is specifically for age-mixing patterns
-
-ampmodel <- function(df) {
-  lme(agep ~ agemean, 
-      data = df, 
-      random = ~1 | id,
-      method = "REML")
-}
-
-# Extracts the between subject SD from agemixing pattern model
-# Also upper and lower CI limits
-
-bvar <- function(model) {
-  
-  # Must take an nlme model object
-  # Outputs a dataframe 
-  
-  bsd <- VarCorr(model)[1, 2] %>%
-    as.numeric() %>%
-    round(2)
-  
-  lwrbsd <- intervals(model)$reStruct$id$lower  %>%
-    round(2)
-  
-  uprbsd <- intervals(model)$reStruct$id$upper  %>%
-    round(2)
-  
-  data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
-}
-
-# Extracts the within subject SD from agemixing pattern model
-# Also upper and lower CI limits
-
-wvar <- function(model) {
-  
-  # Must take an nlme model object
-  # Outputs a dataframe
-  
-  wsd <- VarCorr(model)[2, 2] %>%
-    as.numeric() %>%
-    round(2)
-  
-  lwrwsd <- (intervals(model)$sigma[1])  %>%
-    round(2)
-  
-  uprwsd <- intervals(model)$sigma[3]  %>%
-    round(2)
-  
-  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
-}
-
-# Creating a  negative binomial model for hiv status as outcome
-# Calculates RR
-# Adjusts for race, age 
-# Need to adjust the df for spline appropriately
-# For both male and female models the EDF was 2
-
-bwmodel <- function(df) {
-  
-  df1 <- df %>%
-    filter(relcount > 1) 
-  
-  glm.nb(bridgewidth ~ hiv + splines::ns(age, df = 2) + race,
-      data = df1)
-}
-
-# This function takes the model object form glm.nb and produces
-# predictions for 50 values of age and then stores and returns
-# as a tidy df
-
-nbsplinepreds <- function(df, mod) {
-  
-  grid <- df %>%
-    data_grid(age = seq_range(age, 50), 
-              .model = mod) 
-  
-  grid %>%
-    mutate(pred = predict(mod, 
-                          newdata = .,
-                          type = "response"),
-           se = predict(mod,
-                        newdata = .,
-                        type = "response",
-                        se.fit = T)[[2]])
-  
-}
-
-lmesplinepreds <- function(mod) {
-
-  grid <- expand.grid(age = 15:70, 
-                hiv = "Negative",
-                race = "Black")
-  
-  grid %>%
-    mutate(pred = predict(mod, 
-                          newdata = .,
-                          re.form = NA))
-
-}
-
-# This function creates a model that regresses age differences
-# on HIV.
-# If it is a male df, then the df = 4 for age
-# If it is a female df, then linear age term
-
-admodel <- function(df, gendervar) {
-  
-  if(gendervar == "Male") {
-    lmer(agedif ~ hiv + splines::ns(age, df = 4) + race + (1 | id), 
-        data = df)
-  } else {
-    lmer(agedif ~ hiv + age + race + (1 | id), 
-        data = df)
-  }
 }
 
 # ===========================================================
@@ -426,4 +314,172 @@ OrdPred <- function(mod, n, modAns){
   v$upr <- OrdTrans(v$upr, mod$alpha)
   return(v)
 }
+
+
+
+# =========================
+# Functions for CTSBS study
+# =========================
+
+# Creating a linear mixed model with random intercept for person
+# This is specifically for age-mixing patterns
+
+ampmodel <- function(df) {
+  lme(agep ~ agemean, 
+      data = df, 
+      random = ~1 | id,
+      method = "REML")
+}
+
+# Extracts the between subject SD from agemixing pattern model
+# Also upper and lower CI limits
+
+bvar <- function(model) {
+  
+  # Must take an nlme model object
+  # Outputs a dataframe 
+  
+  bsd <- VarCorr(model)[1, 2] %>%
+    as.numeric() %>%
+    round(2)
+  
+  lwrbsd <- intervals(model)$reStruct$id$lower  %>%
+    round(2)
+  
+  uprbsd <- intervals(model)$reStruct$id$upper  %>%
+    round(2)
+  
+  data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
+}
+
+# Extracts the within subject SD from agemixing pattern model
+# Also upper and lower CI limits
+
+wvar <- function(model) {
+  
+  # Must take an nlme model object
+  # Outputs a dataframe
+  
+  wsd <- VarCorr(model)[2, 2] %>%
+    as.numeric() %>%
+    round(2)
+  
+  lwrwsd <- (intervals(model)$sigma[1])  %>%
+    round(2)
+  
+  uprwsd <- intervals(model)$sigma[3]  %>%
+    round(2)
+  
+  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
+}
+
+# Creating a  negative binomial model for hiv status as outcome
+# Calculates RR
+# Adjusts for race, age 
+# Need to adjust the df for spline appropriately
+# For both male and female models the EDF was 2
+
+bwmodel <- function(df) {
+  
+  df1 <- df %>%
+    filter(relcount > 1) 
+  
+  glm.nb(bridgewidth ~ hiv + splines::ns(age, df = 2) + race,
+      data = df1)
+}
+
+# This function creates a model that regresses age differences
+# on HIV.
+# If it is a male df, then the df = 4 for age
+# If it is a female df, then linear age term
+
+admodel <- function(df, gendervar) {
+  
+  if(gendervar == "Male") {
+    lmer(agedif ~ hiv + splines::ns(age, df = 4) + race + (1 | id), 
+         data = df)
+  } else {
+    lmer(agedif ~ hiv + splines::ns(age, df = 2) + race + (1 | id), 
+         data = df)
+  }
+}
+
+# This function creates a model that regresses age differences on HIV.
+# Uses a GA mixed model with smooth term for age
+# Random intercept for participant
+# Using gamm4 because it uses lmer instead of lme
+# Return only the gam part of the model object (this is the fixed effects)
+
+adgammodel <- function(df) {
+  
+  mod <- gamm4(agedif ~ s(age) + hiv + race, 
+               data = df, 
+               random = ~(1 | id))
+  
+  mod[[2]]
+  
+}
+
+# Function to tidy output of agedif gamm4 model
+
+tidygamm <- function(mod) {
+  
+  data.frame(term = names(coef(mod)),
+             estimate = coef(mod),
+             std.error = summary(mod)$se) %>%
+    mutate(lwr = estimate - 2 * std.error,
+           upr = estimate + 2 * std.error) %>%
+    remove_rownames()
+}
+
+
+# This function takes the model object form glm.nb and produces
+# predictions for 50 values of age and then stores and returns
+# as a tidy df
+
+nbsplinepreds <- function(df, mod) {
+  
+  grid <- df %>%
+    data_grid(age = seq_range(age, 50), 
+              .model = mod) 
+  
+  grid %>%
+    mutate(pred = predict(mod, 
+                          newdata = .,
+                          type = "response"),
+           se = predict(mod,
+                        newdata = .,
+                        type = "response",
+                        se.fit = T)[[2]])
+  
+}
+
+lmesplinepreds <- function(mod) {
+
+  grid <- expand.grid(age = 15:70, 
+                hiv = "Negative",
+                race = "Black")
+  
+  grid %>%
+    mutate(pred = predict(mod, 
+                          newdata = .,
+                          re.form = NA))
+
+}
+
+gammsmoothpreds <- function(mod) {
+  
+  grid <- expand.grid(age = 15:70, 
+                      hiv = "Negative",
+                      race = "Black")
+  
+  grid %>%
+    mutate(pred = predict(mod,
+                          newdata = .),
+           se = predict(mod, 
+                        newdata = ., 
+                        se.fit = TRUE)[[2]])
+}
+
+
 

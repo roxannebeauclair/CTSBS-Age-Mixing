@@ -30,7 +30,8 @@ source(fxn)
 
 InstallLoad("magrittr", "MASS", "tidyverse", 
             "mice","nlme", "lme4", "modelr",
-            "mgcv", "broom", "splines")
+            "mgcv", "gamm4", "broom", "splines", 
+            "mediation")
 
 # =============
 # Load datasets
@@ -467,6 +468,7 @@ dfbww <- dfbw %>%
   filter(sex == "Female")
 
 # GAM models
+# Unfortunately, gamm does not allow mixed effects with negative binomial regression
 bwmodm <- gam(bridgewidth ~ hiv + s(age) + race,
                  data = dfbwm,
                  family = nb()) #edf is rounded to 2
@@ -631,9 +633,8 @@ bwagefig
 
 ```
 
-
-```{r ad_hiv_setup, include = FALSE}
-# Determine the degrees of freedom for the age spline in model
+```{r age_smooth, include = FALSE}
+# Determine the degrees of freedom for the age spline in models
 # Randomly select one dataset
 set.seed(6022)
 n_ad <- sample(1:imp, 1)
@@ -654,16 +655,20 @@ dfadw <- dfad %>%
   filter(sex == "Female")
 
 # Stratified GAMM models
-admodm <- gamm(agedif ~ s(age) + hiv + race, 
+admodm <- gamm4(agedif ~ s(age) + hiv + race, 
            data = dfadm, 
-           random = list(id = ~1))
+           random = ~( 1 | id))
 
-admodw <- gamm(agedif ~ s(age) + hiv + race, 
+admodw <- gamm4(agedif ~ s(age) + hiv + race, 
            data = dfadw, 
-           random = list(id = ~1))
+           random = ~(1 | id))
 
 summary(admodm$gam) # EDF is rounded to 4
-summary(admodw$gam) # EDF is rounded to 1
+summary(admodw$gam) # EDF is rounded to 2
+```
+
+
+```{r ad_med_setup, include = FALSE}
 
 # Create grouped dataframe, without complete cases dataset
 # Only want relationships that started last year
@@ -677,27 +682,58 @@ impsexad <- dfimp %>%
   nest()
 
 # Does HIV status predict agegaps in relationships started after HIV diagnosis?
+# Does HIV predict condom use in relationships (adjusting for mediator agegap)?
+# Does HIV predict sex freq in relationships (adjusting for mediator agegap)?
+# Does HIV predict MCP in relationships (adjusting for mediator agegap)?
+# Does HIV predict Rel duration in relationships (adjusting for mediator agegap)?
+
 # In the past 12 months
+# Model must use lmer (instead of lme) because of mediation analyis
 
-tidysumad <- impsexad %>%
-  mutate(model = map2(data, sex, admodel),
-         modelsum = map(model, ~tidy(.x, effects = "fixed")),
-         splinepred = map(model, lmesplinepreds))
+tidysummed <- impsexad %>%
+  mutate(modelad = map2(data, sex, admodel),
+         modelgamad = map(data, adgammodel),
+         modelsumad = map(modelad, ~tidy(.x, effects = "fixed")),
+         modelgamsumad = map(modelgamad, tidygamm),
+         splinepredad = map(modelad, lmesplinepreds),
+         smoothpredad = map(modelgamad, gammsmoothpreds))
 
-tidysumad
+tidysummed
 
 # Unnest the tidy summary, to see the tidy model estimates for each model
-admodcoef <- tidysumad %>%
-  unnest(modelsum, .drop = TRUE) %>%
+admodcoef <- tidysummed %>%
+  unnest(modelsumad, .drop = TRUE) %>%
   ungroup() %>%
   mutate(lwr = estimate - 2 * std.error,
          upr = estimate + 2 * std.error)
 
+admodcoef
+
+# Unnest the tidy gamm summary, to see the tidy model estiamtes for each model
+admodgamcoef <- tidysummed %>%
+  unnest(modelgamsumad, .drop = TRUE)
+
+admodgamcoef
+
 # Unnest the tidy summary, to see the tidy model predictions for values of age
 # for each model
-admodpred <- tidysumad %>%
-  unnest(splinepred, .drop = TRUE)
+admodpred <- tidysummed %>%
+  unnest(splinepredad, .drop = TRUE)
 
+admodpred
+
+# Unnest the tidy summary, to see the tidy model predictions for values of age
+# for each gamm model
+admodgampred <- tidysummed %>%
+  unnest(smoothpredad, .drop = TRUE)
+
+admodgampred
+
+
+```
+
+
+```{r pool_betas_mods, include = FALSE}
 # Now we want to produce a pooled beta for HIV according to 
 # Rubin's rules. To do this we use mice functions
 
@@ -782,12 +818,27 @@ adhivfig <- admodcoef %>%
   theme
 
 adhivfig  
+
+adgamhivfig <- admodgamcoef %>%
+  filter(term == "hivPositive") %>%
+  ggplot(aes(x = .imp, estimate)) +
+   geom_hline(yintercept = 0, 
+             color = "blue") +
+  geom_point() +
+  geom_pointrange(aes(ymax = upr,
+                      ymin = lwr)) +
+  facet_grid(sex ~ .) +
+  xlab("Imputation") +
+  ylab("B-Coefficient") +
+  theme
+
+adgamhivfig  
   
   
 ```
 <br>
 
-###### **Figure 11. Predicted age-differences for different ages of the participant, stratified by gender. The predictions are from linear mixed effects models with a random intercept for participant. This is for only relationships starting in the previous 12 months (n = 399). Models adjust for race and hiv status. The model for men contained a natural spline for age with 4 degrees of freedom as indicated by a preliminary GAMM.**
+###### **Figure 11. Predicted age-differences for different ages of the participant, stratified by gender. The predictions are from linear mixed effects models with a random intercept for participant. This is for only relationships starting in the previous 12 months (n = 399: n = 230 and n = 169 for men and women, respectively). Models adjust for race and hiv status. The model for men contained a natural spline for age with 4 degrees of freedom as indicated by a preliminary GAMM, while the model for women had a spline with 2 df.**
 
 <br>
 ```{r ad_age_fig, echo = FALSE}
@@ -802,16 +853,31 @@ adagefig <- admodpred %>%
 
 adagefig
 
+adgamagefig <- admodgampred %>%
+  ggplot(aes(x = age, y = pred, group = .imp)) +
+  geom_line() +
+  facet_grid(. ~ sex) +
+  xlab("Age") +
+  ylab("Age difference") +
+  theme
+
+adgamagefig
+
 ```
 
+```{r med_setup, include = FALSE}
+
+
+
+```
 
 ```{r close, include = FALSE}
 # ====================================================
 # Detach libraries and remove objects from environment
 # ====================================================
-Vectorize(detach)(name = paste0("package:", c("tidyverse", "mice",
+Vectorize(detach)(name = paste0("package:", c("tidyverse", "mice", "gamm4",
                                               "mgcv", "modelr", "broom", "nlme", 
-                                              "MASS", "magrittr")), 
+                                              "mediation", "MASS", "magrittr")), 
                   unload = TRUE, 
                   character.only = TRUE)
 

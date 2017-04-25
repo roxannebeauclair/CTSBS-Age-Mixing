@@ -417,19 +417,44 @@ adgammodel <- function(df) {
                random = ~(1 | id))
   
   mod[[2]]
+
+}
+
+# This function creates a model that regresses condom frequency on HIV
+# with age difference as a mediator
+# There are smooth terms for agegaps and age
+# Random intercept for participant: s(id, bs = "re")
+cfmodel <- function(df) { 
+  
+  mod <- gamm4(cf ~ s(agedif) + s(age) + hiv + race,
+      family = binomial,
+      data = df,
+      random = ~(1 | id))
+  
+  mod[[2]]
   
 }
 
-# Function to tidy output of agedif gamm4 model
 
-tidygamm <- function(mod) {
+# Function to tidy output of cf gam model
+tidygam <- function(mod) {
   
-  data.frame(term = names(coef(mod)),
+  df <- data.frame(term = names(coef(mod)),
              estimate = coef(mod),
              std.error = summary(mod)$se) %>%
     mutate(lwr = estimate - 2 * std.error,
            upr = estimate + 2 * std.error) %>%
     remove_rownames()
+  
+  if(mod$family[1] == "binomial") {
+    
+    df <- df %>%
+      mutate(or = exp(estimate),
+           orlwr = exp(lwr),
+           orupr = exp(upr)) 
+  }
+  
+  return(df)
 }
 
 
@@ -467,19 +492,39 @@ lmesplinepreds <- function(mod) {
 
 }
 
-gammsmoothpreds <- function(mod) {
+gammsmoothpreds <- function(mod, data, xvar) {
   
-  grid <- expand.grid(age = 15:70, 
-                      hiv = "Negative",
-                      race = "Black")
+  if(mod$family[1] == "binomial") {
+    
+    type <- "response"
+    
+  } else {
+    
+    type <- "link"
+    
+  }
   
+  if(xvar == "age") {
+  
+    grid <- data %>%
+      data_grid(age = seq_range(age, 50, pretty = TRUE),
+                .model = mod)
+    
+  } else {
+    
+    grid <- data %>%
+      data_grid(agedif = seq_range(agedif, 50, pretty = TRUE),
+                .model = mod)
+  }
+    
   grid %>%
     mutate(pred = predict(mod,
-                          newdata = .),
+                          newdata = .,
+                          type = type),
            se = predict(mod, 
                         newdata = ., 
+                        type = type,
                         se.fit = TRUE)[[2]])
 }
-
 
 

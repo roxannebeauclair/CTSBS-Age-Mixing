@@ -31,7 +31,7 @@ source(fxn)
 InstallLoad("magrittr", "MASS", "tidyverse", 
             "mice","nlme", "lme4", "modelr",
             "mgcv", "gamm4", "broom", "splines", 
-            "mediation")
+            "mediation", "forcats")
 
 # =============
 # Load datasets
@@ -671,13 +671,19 @@ summary(admodw$gam) # EDF is rounded to 2
 ```{r ad_med_setup, include = FALSE}
 
 # Create grouped dataframe, without complete cases dataset
+
+
+####========Models not converging with gams...so for now leaving all relationships in
 # Only want relationships that started last year
 # The reason there are differing numbers of observations in each
 # df, are because there were some missing genders in the original df.
 # In other words, the differing numbers are not related to relationship start
 impsexad <- dfimp %>%
-  filter(.imp != 0, 
-         start == "Last year") %>%
+  filter(.imp != 0) %>%
+  mutate(cf = fct_collapse(relcf,
+                           "Never/inconsistent" = c("Never", "Inconsistent"),
+                           Always = "Always"),
+         dum = 0) %>%
   group_by(.imp, sex) %>%
   nest()
 
@@ -691,44 +697,63 @@ impsexad <- dfimp %>%
 # Model must use lmer (instead of lme) because of mediation analyis
 
 tidysummed <- impsexad %>%
-  mutate(modelad = map2(data, sex, admodel),
-         modelgamad = map(data, adgammodel),
-         modelsumad = map(modelad, ~tidy(.x, effects = "fixed")),
-         modelgamsumad = map(modelgamad, tidygamm),
-         splinepredad = map(modelad, lmesplinepreds),
-         smoothpredad = map(modelgamad, gammsmoothpreds))
+  mutate(#modelad = map2(data, sex, admodel),
+         modelad = map(data, adgammodel),
+         modelcf = map(data, cfmodel),
+         #modelsumad = map(modelad, ~tidy(.x, effects = "fixed")),
+         modelsumad = map(modelad, tidygam),
+         modelsumcf = map(modelcf, tidygam),
+         #splinepredadage = map(modelad, lmesplinepreds),
+         smoothpredadage = map2(modelad, data, ~gammsmoothpreds(.x, .y, xvar = "age")),
+         smoothpredcfage = map2(modelcf, data, ~gammsmoothpreds(.x, .y, xvar = "age")),
+         smoothpredcfagedif = map2(modelcf, data, ~gammsmoothpreds(.x, .y, xvar = "agedif")))
 
 tidysummed
 
 # Unnest the tidy summary, to see the tidy model estimates for each model
+# admodcoef <- tidysummed %>%
+  # unnest(modelsumad, .drop = TRUE) %>%
+  # ungroup() %>%
+  # mutate(lwr = estimate - 2 * std.error,
+         # upr = estimate + 2 * std.error)
+
+# admodcoef
+
+# Unnest the tidy gamm summary, to see the tidy model estiamtes for each model
 admodcoef <- tidysummed %>%
-  unnest(modelsumad, .drop = TRUE) %>%
-  ungroup() %>%
-  mutate(lwr = estimate - 2 * std.error,
-         upr = estimate + 2 * std.error)
+  unnest(modelsumad, .drop = TRUE)
 
 admodcoef
 
-# Unnest the tidy gamm summary, to see the tidy model estiamtes for each model
-admodgamcoef <- tidysummed %>%
-  unnest(modelgamsumad, .drop = TRUE)
+# Unnest the tidy gam cf summary, to see tidy model estimates
+cfmodcoef <- tidysummed %>%
+  unnest(modelsumcf, .drop = TRUE)
 
-admodgamcoef
+cfmodcoef
 
 # Unnest the tidy summary, to see the tidy model predictions for values of age
 # for each model
-admodpred <- tidysummed %>%
-  unnest(splinepredad, .drop = TRUE)
+# admodpred <- tidysummed %>%
+  # unnest(splinepredad, .drop = TRUE)
 
-admodpred
+# admodpred
 
 # Unnest the tidy summary, to see the tidy model predictions for values of age
 # for each gamm model
-admodgampred <- tidysummed %>%
-  unnest(smoothpredad, .drop = TRUE)
+admodpredage <- tidysummed %>%
+  unnest(smoothpredadage, .drop = TRUE)
 
-admodgampred
+admodpredage
 
+cfmodpredage <- tidysummed %>%
+  unnest(smoothpredcfage, .drop = TRUE)
+
+cfmodpredage
+
+cfmodpredagedif <- tidysummed %>%
+  unnest(smoothpredcfagedif, .drop = TRUE)
+
+cfmodpredagedif
 
 ```
 
@@ -738,7 +763,7 @@ admodgampred
 # Rubin's rules. To do this we use mice functions
 
 rels <- dfimp %>% # Take original rel-level imputed df
-  filter(start == "Last year") %>% # Only relationships starting last year
+  # filter(start == "Last year") %>% # Only relationships starting last year
   as.mids() # Create mids object
 
 admodpoolm <- rels %>%
@@ -752,7 +777,7 @@ admodpoolm <- rels %>%
 
 admodpoolw <- rels %>%
   with(
-    lmer(agedif ~ hiv + age + race + (1 | id),
+    lmer(agedif ~ hiv + ns(age, df = 2) + race + (1 | id),
         subset = sex == "Female")
     ) %>%
   pool() %>% # Pool coefficients according to Rubin's Rules
@@ -771,7 +796,7 @@ womenBupr <- admodpoolw[2, 7]
 
 <br>
 
-###### **Figure 9. Distribution of age differences in relationships that started in the previous 12 months, by gender and imputation dataset**
+###### **Figure 9. Distribution of age differences in relationships, by gender and imputation dataset**
 
 <br>
 
@@ -790,7 +815,7 @@ adfig
 
 <br>
 
-###### **Figure 10. Effect of participant HIV on age-differences in relationships, stratified by gender. Beta-coefficients are from linear mixed effects models with a random intercept for participant. This is for only relationships starting in the previous 12 months (n = 399). Models adjust for race and age.**
+###### **Figure 10. Effect of participant HIV on age-differences in relationships, stratified by gender. Beta-coefficients are from generalized additive mixed effects models with a random intercept for participant. Models adjust for race and age.**
 
 <br>
 
@@ -801,8 +826,7 @@ label <- c(
   paste0("Pooled B-Coefficient: ", womenB, "(", womenBlwr, " - ", womenBupr, ")")
 )
 
-# Plot all the b's for each imputed dataset by sex
-# Annotate with the pooled coefficient from above
+
 adhivfig <- admodcoef %>%
   filter(term == "hivPositive") %>%
   ggplot(aes(x = .imp, estimate)) +
@@ -812,38 +836,23 @@ adhivfig <- admodcoef %>%
   geom_pointrange(aes(ymax = upr,
                       ymin = lwr)) +
   facet_grid(sex ~ .) +
+  annotate("text", x = 38, y = -9, label = label) +
   xlab("Imputation") +
   ylab("B-Coefficient") +
-  annotate("text", x = 38, y = -9, label = label) +
   theme
 
 adhivfig  
-
-adgamhivfig <- admodgamcoef %>%
-  filter(term == "hivPositive") %>%
-  ggplot(aes(x = .imp, estimate)) +
-   geom_hline(yintercept = 0, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = upr,
-                      ymin = lwr)) +
-  facet_grid(sex ~ .) +
-  xlab("Imputation") +
-  ylab("B-Coefficient") +
-  theme
-
-adgamhivfig  
   
   
 ```
 <br>
 
-###### **Figure 11. Predicted age-differences for different ages of the participant, stratified by gender. The predictions are from linear mixed effects models with a random intercept for participant. This is for only relationships starting in the previous 12 months (n = 399: n = 230 and n = 169 for men and women, respectively). Models adjust for race and hiv status. The model for men contained a natural spline for age with 4 degrees of freedom as indicated by a preliminary GAMM, while the model for women had a spline with 2 df.**
+###### **Figure 11. Predicted age-differences for different ages of the participant, stratified by gender. The predictions are from a generalised additive mixed effects model with a random intercept for participant. Models adjust for race and hiv status.**
 
 <br>
 ```{r ad_age_fig, echo = FALSE}
 
-adagefig <- admodpred %>%
+adagefig <- admodpredage %>%
   ggplot(aes(x = age, y = pred, group = .imp)) +
   geom_line() +
   facet_grid(. ~ sex) +
@@ -853,23 +862,14 @@ adagefig <- admodpred %>%
 
 adagefig
 
-adgamagefig <- admodgampred %>%
-  ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
-  facet_grid(. ~ sex) +
-  xlab("Age") +
-  ylab("Age difference") +
-  theme
-
-adgamagefig
-
 ```
 
-```{r med_setup, include = FALSE}
+###### **Figure 12. Effect of HIV on condom use (Never or Infrequently vs Always) in relationship, stratified by gender. Beta-coefficients are from generalized additive mixed models (logistic outcome) with a random intercept for the participant. Models are adjusted for age, agegaps (hypothetical mediator) and race.**
 
+###### **Figure 13. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (logistic outcome) with a random intercept for the participant. Models are adjusted for hiv status, age gaps(hypothetical mediator) and race.**
 
+###### **Figure 14. Predicted probabilities of "Always" using a condom in a relationship for different agegaps, stratified by gender. The predictions are from generalised additive mixed models (logistic outcome) with a random intercept for the participant. Models are adjusted for hiv status, age, and race.**
 
-```
 
 ```{r close, include = FALSE}
 # ====================================================

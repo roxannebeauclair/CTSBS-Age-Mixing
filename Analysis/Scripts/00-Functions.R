@@ -420,13 +420,15 @@ adgammodel <- function(df) {
 
 }
 
-# This function creates a model that regresses condom frequency on HIV
+# This function creates a model that regresses a binary sexual behaviour
+# outcome variable on HIV
 # with age difference as a mediator
 # There are smooth terms for agegaps and age
-# Random intercept for participant: s(id, bs = "re")
-cfmodel <- function(df) { 
+sbmodel <- function(df, yvar) { 
   
-  mod <- gamm4(cf ~ s(agedif) + s(age) + hiv + race,
+  df$yvar <- eval(substitute(yvar), df)
+  
+  mod <- gamm4(yvar ~ s(agedif) + s(age) + hiv + race,
       family = binomial,
       data = df,
       random = ~(1 | id))
@@ -434,6 +436,7 @@ cfmodel <- function(df) {
   mod[[2]]
   
 }
+
 
 
 # Function to tidy output of cf gam model

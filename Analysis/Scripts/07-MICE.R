@@ -188,8 +188,8 @@ dfimp4 <- dfimp3 %>%
 dfimp <- dfimp4 %>%
   mutate(partconcur = as.factor(partconcur),
          partcf = as.factor(partcf),
-         agemean = age - aveage,
-         age2sd = age - (2 * sdage), 
+         agemean = age - aveage, # Centered age on mean
+         age2sd = (age - aveage)/ (2 * sdage), # Centered age on mean, then scaled by 2SD
          agegroup = cut(age,
                         breaks = c(14, 24, 34, 44, 54, 70),
                         labels = c("15-24", "25-34", "35-44", "45-54", "55-70")),

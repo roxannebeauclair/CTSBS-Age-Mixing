@@ -425,7 +425,8 @@ adgammodel <- function(df) {
 # with age difference as a mediator
 # There are smooth terms for agegaps and age
 sbmodel <- function(df, yvar) { 
-  
+
+  # The yvar is the specific outocme variable
   df$yvar <- eval(substitute(yvar), df)
   
   mod <- gamm4(yvar ~ s(agedif) + s(age) + hiv + race,
@@ -437,9 +438,24 @@ sbmodel <- function(df, yvar) {
   
 }
 
+# This function creates a model that regresses sex frequency (count)
+# outcome variable on HIV
+# with age difference as a mediator
+# there are smooth terms for agegaps and age
 
+sfmodel <- function(df) {
+  
+  mod <- gamm4(relsf ~ s(agedif) + s(age) + hiv + race,
+        family = poisson,
+        data = df,
+        random = ~(1 | id))
+  
+  mod[[2]]
+  
+}
 
-# Function to tidy output of cf gam model
+# Function to tidy output of gamm4 models
+# These will have a sexual behaviour as the outcome
 tidygam <- function(mod) {
   
   df <- data.frame(term = names(coef(mod)),
@@ -449,7 +465,8 @@ tidygam <- function(mod) {
            upr = estimate + 2 * std.error) %>%
     remove_rownames()
   
-  if(mod$family[1] == "binomial") {
+  if(mod$family[1] == "binomial" |
+     mod$family[1] == "poisson") {
     
     df <- df %>%
       mutate(or = exp(estimate),
@@ -482,11 +499,15 @@ nbsplinepreds <- function(df, mod) {
   
 }
 
+# This function takes the model object from lme4 and
+# produces predictions for the specified ages and then
+# stores and returns as a tidy df
+
 lmesplinepreds <- function(mod) {
 
   grid <- expand.grid(age = 15:70, 
-                hiv = "Negative",
-                race = "Black")
+                hiv = "Negative", # Mode hiv value
+                race = "Black") # Mode race value
   
   grid %>%
     mutate(pred = predict(mod, 
@@ -495,9 +516,17 @@ lmesplinepreds <- function(mod) {
 
 }
 
+# This function takes the model object from a gamm4 model,
+# a dataframe, and the explanatory variable that is a smooth
+# term in the model and produces predictions for that particular
+# smooth term. It stores and returns the result as a tidy df.
+
 gammsmoothpreds <- function(mod, data, xvar) {
   
-  if(mod$family[1] == "binomial") {
+  # Determine the model family, so that we can do the 
+  # predictions on the right scale
+  if(mod$family[1] == "binomial" |
+     mod$family[1] == "poisson") { 
     
     type <- "response"
     
@@ -507,19 +536,23 @@ gammsmoothpreds <- function(mod, data, xvar) {
     
   }
   
+  # Create the model prediction grid
+  # data_grid function uses the "typical" values to base
+  # the predictions on
   if(xvar == "age") {
   
     grid <- data %>%
-      data_grid(age = seq_range(age, 50, pretty = TRUE),
+      modelr::data_grid(age = seq_range(age, 50, pretty = TRUE),
                 .model = mod)
     
   } else {
     
     grid <- data %>%
-      data_grid(agedif = seq_range(agedif, 50, pretty = TRUE),
+      modelr::data_grid(agedif = seq_range(agedif, 50, pretty = TRUE),
                 .model = mod)
   }
-    
+  
+  # Take the grid from above and create predictions.  
   grid %>%
     mutate(pred = predict(mod,
                           newdata = .,

@@ -203,7 +203,7 @@ ampfig <- comb %>%
   scale_y_continuous(name = "Partner's ages") +
   scale_color_manual('Imputation Status', values = c('grey70', 'grey42')) +
   scale_linetype_manual('Lines', values = c("Population mean" = 1, 'Same age' = 2)) +
-  xlab("Participant's age (centered on mean age)") +
+  xlab("Participant's age") +
   guides(linetype = guide_legend(keywidth = 2, keyheight = 1)) +
   theme
 
@@ -700,17 +700,21 @@ tidysummed <- impsexad %>%
   mutate(#modelad = map2(data, sex, admodel),
          modelad = map(data, adgammodel),
          modelcf = map(data, ~sbmodel(.x, yvar = cf)),
-         modelmcp = map(data, ~sbmodel(.x, yvar = relconcur)),
+         modelsf = map(data, sfmodel),
+         #modelmcp = map(data, ~sbmodel(.x, yvar = relconcur)),
          #modelsumad = map(modelad, ~tidy(.x, effects = "fixed")),
          modelsumad = map(modelad, tidygam),
          modelsumcf = map(modelcf, tidygam),
-         modelsummcp = map(modelmcp, tidygam),
+         modelsumsf = map(modelsf, tidygam),
+         #modelsummcp = map(modelmcp, tidygam),
          #splinepredadage = map(modelad, lmesplinepreds),
          smoothpredadage = map2(modelad, data, ~gammsmoothpreds(.x, .y, xvar = "age")),
          smoothpredcfage = map2(modelcf, data, ~gammsmoothpreds(.x, .y, xvar = "age")),
          smoothpredcfagedif = map2(modelcf, data, ~gammsmoothpreds(.x, .y, xvar = "agedif")),
-         smoothpredmcpage = map2(modelmcp, data, ~gammsmoothpreds(.x, .y, xvar = "age")),
-         smoothpredmcpagedif = map2(modelmcp, data, ~gammsmoothpreds(.x, .y, xvar = "agedif")))
+         smoothpredsfage = map2(modelsf, data, ~gammsmoothpreds(.x, .y, xvar = "age")),
+         smoothpredsfagedif = map2(modelsf, data, ~gammsmoothpreds(.x, .y, xvar = "agedif")))
+         #smoothpredmcpage = map2(modelmcp, data, ~gammsmoothpreds(.x, .y, xvar = "age")),
+         #smoothpredmcpagedif = map2(modelmcp, data, ~gammsmoothpreds(.x, .y, xvar = "agedif")))
 
 tidysummed
 
@@ -734,6 +738,13 @@ cfmodcoef <- tidysummed %>%
   unnest(modelsumcf, .drop = TRUE)
 
 cfmodcoef
+
+# Unnest the tidy gam sf summary, to see tidy model estimates
+sfmodcoef <- tidysummed %>%
+  unnest(modelsumsf, .drop = TRUE)
+
+sfmodcoef
+
 
 # Unnest the tidy summary, to see the tidy model predictions for values of age
 # for each model
@@ -763,27 +774,39 @@ cfmodpredagedif <- tidysummed %>%
 
 cfmodpredagedif
 
-# Unnest tidy summary to see model estimates with mcp as outcome
-mcpmodcoef <- tidysummed %>%
-  unnest(modelsummcp, .drop = TRUE)
+# Unnest the tidy summary, to see the tidy model predictions for values of age
+# for each gamm model
+sfmodpredage <- tidysummed %>%
+  unnest(smoothpredsfage, .drop = TRUE)
 
-mcpmodcoef
+sfmodpredage
+
+# Unnest the tidy summary, to see the tidy model predictions for values of agegaps
+# for each gamm model
+sfmodpredagedif <- tidysummed %>%
+  unnest(smoothpredsfagedif, .drop = TRUE)
+
+sfmodpredagedif
+
+
+# Unnest tidy summary to see model estimates with mcp as outcome
+# mcpmodcoef <- tidysummed %>%
+  # unnest(modelsummcp, .drop = TRUE)
+
 
 # Unnest tidy summary to see model predictions for age with
 # mcp as outcome
 
-mcpmodpredage <- tidysummed %>%
-  unnest(smoothpredmcpage, .drop = TRUE)
+# mcpmodpredage <- tidysummed %>%
+  # unnest(smoothpredmcpage, .drop = TRUE)
 
-mcpmodpredage
+
 
 # Unnest tidy summary to see model predictions for agegaps
 # with mcp as outcome
 
-mcpmodpredagedif <- tidysummed %>%
-  unnest(smoothpredmcpagedif, .drop = TRUE)
-
-mcpmodpredagedif
+# mcpmodpredagedif <- tidysummed %>%
+  # unnest(smoothpredmcpagedif, .drop = TRUE)
 
 ```
 
@@ -894,16 +917,18 @@ adagefig
 
 <br>
 
+
+
 ###### **Figure 12. Effect of HIV on "Always" using a condom  in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models (logistic outcome) with a random intercept for the participant. Models are adjusted for age, agegaps (hypothetical mediator) and race.**
 
 <br>
 
-```{r cf_hiv_fig, echo = TRUE}
+```{r cf_hiv_fig, echo = FALSE}
 
 cfhivfig <- cfmodcoef %>%
   filter(term == "hivPositive") %>%
   ggplot(aes(x = .imp, or)) +
-   geom_hline(yintercept = 0, 
+   geom_hline(yintercept = 1, 
              color = "blue") +
   geom_point() +
   geom_pointrange(aes(ymax = orupr,
@@ -923,7 +948,7 @@ cfhivfig
 
 <br>
 
-```{r cf_age_fig, echo = TRUE}
+```{r cf_age_fig, echo = FALSE}
 
 cfagefig <- cfmodpredage %>%
   ggplot(aes(x = age, y = pred, group = .imp)) +
@@ -943,13 +968,13 @@ cfagefig
 
 <br>
 
-```{r cf_agedif_fig, echo = TRUE}
+```{r cf_agedif_fig, echo = FALSE}
 
 cfagediffig <- cfmodpredagedif %>%
   ggplot(aes(x = agedif, y = pred, group = .imp)) +
   geom_line() +
   facet_grid(. ~ sex) +
-  xlab("Age") +
+  xlab("Age difference") +
   ylab("Probability") +
   theme
 
@@ -962,23 +987,23 @@ cfagediffig
 
 <br>
 
-```{r mcp_hiv_fig, echo = TRUE}
+```{r mcp_hiv_fig, echo = FALSE}
 
-mcphivfig <- mcpmodcoef %>%
-  filter(term == "hivPositive" &
-           .imp != 34) %>%
-  ggplot(aes(x = .imp, or)) +
-   geom_hline(yintercept = 0, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = orupr,
-                      ymin = orlwr)) +
-  facet_grid(sex ~ .) +
-  xlab("Imputation") +
-  ylab("OR") +
-  theme
-
-mcphivfig
+# mcphivfig <- mcpmodcoef %>%
+#   filter(term == "hivPositive" &
+#            .imp != 34) %>%
+#   ggplot(aes(x = .imp, or)) +
+#    geom_hline(yintercept = 0, 
+#              color = "blue") +
+#   geom_point() +
+#   geom_pointrange(aes(ymax = orupr,
+#                       ymin = orlwr)) +
+#   facet_grid(sex ~ .) +
+#   xlab("Imputation") +
+#   ylab("OR") +
+#   theme
+# 
+# mcphivfig
 
 ```
 
@@ -988,17 +1013,17 @@ mcphivfig
 
 <br>
 
-```{r mcp_age_ fig, echo = TRUE}
+```{r mcp_age_fig, echo = FALSE}
 
-mcpagefig <- mcpmodpredage %>%
-  ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
-  facet_grid(. ~ sex) +
-  xlab("Age") +
-  ylab("Probability") +
-  theme
-
-mcpagefig
+# mcpagefig <- mcpmodpredage %>%
+#   ggplot(aes(x = age, y = pred, group = .imp)) +
+#   geom_line() +
+#   facet_grid(. ~ sex) +
+#   xlab("Age") +
+#   ylab("Probability") +
+#   theme
+# 
+# mcpagefig
 ```
 
 <br>
@@ -1007,17 +1032,100 @@ mcpagefig
 
 <br>
 
-```{r}
-mcpagediffig <- mcpmodpredagedif %>%
-  ggplot(aes(x = agedif, y = pred, group = .imp)) +
+```{r mcp_agedif_fig, echo = FALSE}
+# mcpagediffig <- mcpmodpredagedif %>%
+#   ggplot(aes(x = agedif, y = pred, group = .imp)) +
+#   geom_line() +
+#   facet_grid(. ~ sex) +
+#   xlab("Age") +
+#   ylab("Probability") +
+#   theme
+# 
+# mcpagediffig
+```
+
+<br>
+
+###### **Figure 18. Distribution of average number of times sex occurred per week in relationships, stratified by gender and imputation dataset**
+
+<br>
+
+```{r sf_fig, echo = FALSE}
+
+sffig <- impsexad %>%
+  unnest() %>%
+  ggplot(aes(x = relsf, group = .imp)) +
+  geom_density() +
+  facet_grid(. ~ sex) +
+  theme
+
+sffig
+
+```
+
+<br>
+
+###### **Figure 19. Effect of HIV on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for age, agegaps (hypothetical mediator) and race.**
+
+<br>
+
+```{r sf_hiv_fig, echo = FALSE}
+
+sfhivfig <- sfmodcoef %>%
+  filter(term == "hivPositive") %>%
+  ggplot(aes(x = .imp, or)) +
+   geom_hline(yintercept = 1, 
+             color = "blue") +
+  geom_point() +
+  geom_pointrange(aes(ymax = orupr,
+                      ymin = orlwr)) +
+  facet_grid(sex ~ .) +
+  xlab("Imputation") +
+  ylab("IRR") +
+  theme
+
+sfhivfig
+
+```
+
+###### **Figure 20. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for hiv status, age gaps(hypothetical mediator) and race.**
+
+<br>
+
+```{r sf_age_fig, echo = FALSE}
+
+sfagefig <- sfmodpredage %>%
+  ggplot(aes(x = age, y = pred, group = .imp)) +
   geom_line() +
   facet_grid(. ~ sex) +
   xlab("Age") +
-  ylab("Probability") +
+  ylab("Predicted average number of times sex occurred per week") +
   theme
 
-mcpagediffig
+sfagefig
+
 ```
+
+<br>
+
+###### **Figure 21. Predicted average number of times sex occurred per week in a relationship for different agegaps, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for hiv status, age, and race.**
+
+<br>
+
+```{r sf_agedif_fig, echo = FALSE}
+
+sfagediffig <- sfmodpredagedif %>%
+  ggplot(aes(x = agedif, y = pred, group = .imp)) +
+  geom_line() +
+  facet_grid(. ~ sex) +
+  xlab("Age difference") +
+  ylab("Predicted average number of times sex occurred per week") +
+  theme
+
+sfagediffig
+```
+
+<br>
 
 
 ```{r close, include = FALSE}

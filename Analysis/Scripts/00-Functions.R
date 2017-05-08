@@ -381,12 +381,12 @@ wvar <- function(model) {
 
 bwmodel <- function(df) {
   
-  df1 <- df %>%
-    filter(relcount > 1) 
-  
-  glm.nb(bridgewidth ~ hiv + splines::ns(age, df = 2) + race,
-      data = df1)
+  gam(bridgewidth ~ hiv + s(age) + race,
+    data = df,
+    family = nb())
+
 }
+
 
 # This function creates a model that regresses age differences
 # on HIV.
@@ -420,35 +420,117 @@ adgammodel <- function(df) {
 
 }
 
-# This function creates a model that regresses a binary sexual behaviour
+# This function creates a model that regresses the condom frequency
 # outcome variable on HIV
-# with age difference as a mediator
-# There are smooth terms for agegaps and age
-sbmodel <- function(df, yvar) { 
-
-  # The yvar is the specific outocme variable
-  df$yvar <- eval(substitute(yvar), df)
+# Mixed model with random intercept for participant
+# with bridgewidth as a mediator
+# There are smooth terms for bw and age
+cfmodel <- function(df, med = FALSE) { 
   
-  mod <- gamm4(yvar ~ s(agedif) + s(age) + hiv + race,
-      family = binomial,
-      data = df,
-      random = ~(1 | id))
+  # Checks to see if we want a model with bw as a mediator
+  if(med) {
+    
+    mod <- gamm4(cf ~ bridgewidth + s(age) + hiv + race,
+                 family = binomial,
+                 data = df,
+                 random = ~(1 | id))
+    
+  } else {
+    
+    mod <- gamm4(cf ~ s(age) + hiv + race,
+                 family = binomial,
+                 data = df,
+                 random = ~(1 | id))
+    
+  }
   
   mod[[2]]
   
 }
 
+cfbwmodel <- function(df) { 
+  
+  mod <- gamm4(cf ~ bridgewidth + s(age) + race,
+               family = binomial,
+               data = df,
+               random = ~(1 | id))
+
+  mod[[2]]
+  
+}
+
+# This function creates a model that regresses the binary concurrency
+# outcome variable on HIV
+# with bridgewidth as a mediator
+# There are smooth terms for bw and age
+# 
+mcpmodel <- function(df, med = FALSE) { 
+  
+  # The yvar is the specific outocme variable
+  # df$yvar <- eval(substitute(yvar), df)
+  
+  # Checks to see if we want a model with bw as a mediator
+  if(med) {
+    
+    gam(partconcur ~ bridgewidth + s(age) + hiv + race,
+        family = binomial,
+        data = df)
+    
+  } else {
+    
+    gam(partconcur ~ s(age) + hiv + race,
+        family = binomial,
+        data = df)
+    
+  }
+ 
+}
+
+# This function regresses mcp on bridgewidth
+# No HIV in this model
+mcpbwmodel <- function(df) { 
+    
+  gam(partconcur ~ bridgewidth + s(age) + race,
+      family = binomial,
+      data = df)
+  
+}
+
 # This function creates a model that regresses sex frequency (count)
 # outcome variable on HIV
-# with age difference as a mediator
-# there are smooth terms for agegaps and age
+# with bw as a mediator
+# there are smooth terms for bw and age
 
-sfmodel <- function(df) {
+sfmodel <- function(df, med = FALSE) {
   
-  mod <- gamm4(relsf ~ s(agedif) + s(age) + hiv + race,
-        family = poisson,
-        data = df,
-        random = ~(1 | id))
+  # Checks to see if we want a model with bw as a mediator
+  if(med) {
+    
+    mod <- gamm4(relsf ~ bridgewidth + s(age) + hiv + race,
+                 family = poisson,
+                 data = df,
+                 random = ~(1 | id))
+    
+  } else {
+    
+    mod <- gamm4(relsf ~ s(age) + hiv + race,
+                 family = poisson,
+                 data = df,
+                 random = ~(1 | id))
+    
+  }
+  
+  mod[[2]]
+
+}
+
+sfbwmodel <- function(df) {
+  
+  mod <- gamm4(relsf ~ bridgewidth + s(age) + race,
+               family = poisson,
+               data = df,
+               random = ~(1 | id))
+
   
   mod[[2]]
   
@@ -458,6 +540,7 @@ sfmodel <- function(df) {
 # These will have a sexual behaviour as the outcome
 tidygam <- function(mod) {
   
+  
   df <- data.frame(term = names(coef(mod)),
              estimate = coef(mod),
              std.error = summary(mod)$se) %>%
@@ -466,16 +549,18 @@ tidygam <- function(mod) {
     remove_rownames()
   
   if(mod$family[1] == "binomial" |
-     mod$family[1] == "poisson") {
+     mod$family[1] == "poisson" |
+     grepl("Negative Binomial", mod$family[1])) {
     
     df <- df %>%
-      mutate(or = exp(estimate),
-           orlwr = exp(lwr),
-           orupr = exp(upr)) 
+      mutate(ratio = exp(estimate),
+           rlwr = exp(lwr),
+           rupr = exp(upr)) 
   }
   
   return(df)
 }
+
 
 
 # This function takes the model object form glm.nb and produces
@@ -521,12 +606,14 @@ lmesplinepreds <- function(mod) {
 # term in the model and produces predictions for that particular
 # smooth term. It stores and returns the result as a tidy df.
 
-gammsmoothpreds <- function(mod, data, xvar) {
+
+gampreds <- function(mod, data, xvar) {
   
   # Determine the model family, so that we can do the 
   # predictions on the right scale
   if(mod$family[1] == "binomial" |
-     mod$family[1] == "poisson") { 
+     mod$family[1] == "poisson" |
+     grepl("Negative Binomial", mod$family[1])) { 
     
     type <- "response"
     
@@ -540,16 +627,16 @@ gammsmoothpreds <- function(mod, data, xvar) {
   # data_grid function uses the "typical" values to base
   # the predictions on
   if(xvar == "age") {
-  
+    
     grid <- data %>%
       modelr::data_grid(age = seq_range(age, 50, pretty = TRUE),
-                .model = mod)
+                        .model = mod)
     
   } else {
     
     grid <- data %>%
-      modelr::data_grid(agedif = seq_range(agedif, 50, pretty = TRUE),
-                .model = mod)
+      modelr::data_grid(bridgewidth = seq_range(bridgewidth, 20, pretty = TRUE),
+                        .model = mod)
   }
   
   # Take the grid from above and create predictions.  
@@ -562,5 +649,4 @@ gammsmoothpreds <- function(mod, data, xvar) {
                         type = type,
                         se.fit = TRUE)[[2]])
 }
-
 

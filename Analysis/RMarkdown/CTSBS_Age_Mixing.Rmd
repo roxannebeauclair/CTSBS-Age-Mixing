@@ -111,13 +111,25 @@ df4 <- df3 %>%
 
 rels_last_year <- nrow(df4)
 
-rm(df, df1, df2, df3, df4)
+# How many participants had more than 1 relationship
+df5 <- partdfimp %>%
+  filter(.imp ==23) %>%
+  filter(relcount > 1)
+
+parts_many_partner <- nrow(df5)
+
+rm(df, df1, df2, df3, df4, df5)
 
 ```
 
 <br>
 
-Before conducting imputations, I excluded participants who said their sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Participants who had missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left` participants. Of those relationships `r rels_last_year` started in the 12 months preceeding the survey. I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "polr" method for our ordinal variables. 
+**Research question:** 
+
+1. Describe the age-mixing pattern in the CTSBS population.
+2. 
+
+Before conducting imputations, I excluded participants who said their sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Participants who had missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left` participants. Of the `r parts_left` participants, `r parts_many_partner` reported more than one relationship in the previous year. I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "polr" method for our ordinal variables. 
 
 ```{r amp_setup, include = FALSE}
 
@@ -128,7 +140,7 @@ n <- sample(1:imp, 1)
 # Smaller datasets
 dfamp <- dfimp %>%
   filter(.imp == n) %>%
-  select(id, age, agemean, age2sd, agep, sex,
+  select(id, age, agemean, agep, sex,
          missage, missagep, hiv) 
 
 dfampm <- dfamp %>%

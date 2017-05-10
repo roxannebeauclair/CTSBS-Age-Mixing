@@ -188,6 +188,7 @@ dfimp4 <- dfimp3 %>%
 dfimp <- dfimp4 %>%
   mutate(partconcur = as.factor(partconcur),
          partcf = as.factor(partcf),
+         age0 = age - 15, # Centered on youngest age
          agemean = age - aveage, # Centered age on mean
          age2sd = (age - aveage)/ (2 * sdage), # Centered age on mean, then scaled by 2SD
          agegroup = cut(age,

@@ -140,7 +140,7 @@ n <- sample(1:imp, 1)
 # Smaller datasets
 dfamp <- dfimp %>%
   filter(.imp == n) %>%
-  select(id, age, agemean, agep, sex,
+  select(id, age, age0, agep, sex,
          missage, missagep, hiv) 
 
 dfampm <- dfamp %>%
@@ -151,56 +151,40 @@ dfampw <- dfamp %>%
 
 
 # Now fit separate models for men and women
-ampmodm1 <- lme(agep ~ agemean, 
+ampmodm1 <- lme(agep ~ age0, 
            data = dfampm, 
            random = ~1 | id,  
            method = "REML")
 
-ampmodw1 <- lme(agep ~ agemean, 
+ampmodw1 <- lme(agep ~ age0, 
            data = dfampw, 
            random = ~1 | id,
            method = "REML")
 
-ampmodm2 <- gamm(agep ~ s(agemean), 
-           data = dfampm, 
-           random = list(id = ~1))
-
-ampmodw2 <- gamm(agep ~ s(agemean), 
-           data = dfampw, 
-           random = list(id = ~1))
-
-
 # Add the predicted values and residuals to the dataset
 dfampm <- dfampm %>%
-  mutate(pred.1 = predict(ampmodm1, newdata = ., level = 0),
-         pred.2 = predict(ampmodm2$gam, newdata = .),
-         resid.2 = residuals(ampmodm2$gam)) %>%
-  add_residuals(ampmodm1, var = "resid.1")
+  mutate(pred = predict(ampmodm1, newdata = ., level = 0)) %>%
+  add_residuals(ampmodm1, var = "resid")
 
 dfampw <- dfampw %>%
-  mutate(pred.1 = predict(ampmodw1, newdata = ., level = 0),
-         pred.2 = predict(ampmodw2$gam, newdata = .),
-         resid.2 = residuals(ampmodw2$gam))%>%
-  add_residuals(ampmodw1, var = "resid.1") 
+  mutate(pred = predict(ampmodw1, newdata = ., level = 0)) %>%
+  add_residuals(ampmodw1, var = "resid") 
 
 #Combine both datasets again
-comb <- bind_rows(dfampm, dfampw) %>%
-  gather(key, value, -id:-hiv) %>%
-  separate(key, into = c("type", "model"), sep = "\\.")
+comb <- bind_rows(dfampm, dfampw) 
   
 ```
 
 <br>
 
-###### **Figure 1. Age mixing pattern for randomly selected imputed dataset. Model 1 represents the linear mixed effects model with age as a linear term. Model 2 represents the GAMM with age as a smoothed term**
+###### **Figure 1. Age mixing pattern for randomly selected imputed dataset. Linear mixed effects model without hetero skedastic variance explicitly modeled**
 
 <br>
 
 ```{r amp_fig, echo = FALSE}
 # Figure visualizing the age mixing pattern
 ampfig <- comb %>%
-  filter(type == "pred") %>%
-  ggplot(aes(x = age, y = value)) +
+  ggplot(aes(x = age, y = pred)) +
   geom_point(aes(x = age, 
                  y = agep, 
                  color = missagep), 
@@ -211,7 +195,7 @@ ampfig <- comb %>%
               show.legend = FALSE) +
   geom_line(aes(linetype = "Population mean"), 
             size = 1) +
-  facet_grid(model ~ sex) + 
+  facet_grid(~ sex) + 
   scale_y_continuous(name = "Partner's ages") +
   scale_color_manual('Imputation Status', values = c('grey70', 'grey42')) +
   scale_linetype_manual('Lines', values = c("Population mean" = 1, 'Same age' = 2)) +
@@ -229,25 +213,23 @@ ampfig
 
 <br>
 
-```{r amp_res_fig, echo = FALSE}
-# Visualizing spread of residuals for lm and gam model
+```{r amp_res_fig, include = FALSE}
+# Visualizing spread of residuals for lm 
 ampresfig1 <- comb %>%
-  filter(type == "resid") %>%
-  ggplot(aes(value)) +
+  ggplot(aes(resid)) +
   geom_freqpoly(binwidth = 0.5) +
-  facet_grid(model ~ sex) +
+  facet_grid(. ~ sex) +
   theme
 
 ampresfig1
 
-# Visualizing pattern of residuals for lm and gam model
+# Visualizing pattern of residuals for lm 
 ampresfig2 <- comb %>%
-  filter(type == "resid") %>%
-  ggplot(aes(x = age, y = value)) +
+  ggplot(aes(x = age, y = resid)) +
   geom_point() +
   geom_smooth(method = "loess") +
   geom_ref_line(h = 0) +
-  facet_grid(model ~ sex) + 
+  facet_grid(. ~ sex) + 
   theme
 
 ampresfig2

@@ -126,8 +126,9 @@ rm(df, df1, df2, df3, df4, df5)
 
 **Research question:** 
 
-1. Describe the age-mixing pattern in the CTSBS population.
-2. 
+1. Describe the age-mixing pattern in the CTSBS population. Does the age-mixing pattern of HIV positive participants differ from the general population?
+2. At the individual-level are large ranges in partner ages (bridgewidths) associated with HIV status of a participant?
+3. Large bridgewidths may make it possible for participants to acquire HIV from one age group and transmit to the next, but are they also associated with risky sexual behaviours among participants?
 
 Before conducting imputations, I excluded participants who said their sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Participants who had missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left` participants. Of the `r parts_left` participants, `r parts_many_partner` reported more than one relationship in the previous year. I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "polr" method for our ordinal variables. 
 
@@ -171,7 +172,8 @@ dfampw <- dfampw %>%
   add_residuals(ampmodw1, var = "resid") 
 
 #Combine both datasets again
-comb <- bind_rows(dfampm, dfampw) 
+comb <- bind_rows(dfampm, dfampw) %>%
+  mutate(population = "all")
   
 ```
 
@@ -207,11 +209,6 @@ ampfig
 
 ```
 
-<br>
-
-###### **Figure 2. 2A visualizes the spread of the residuals for the different models. Model 1 is the linear mixed effect model with age as a linear term, while Model 2 is a GAMM. 2b visualizes the pattern of residuals for the lme and gamm. In both models there appears to be constant variance**
-
-<br>
 
 ```{r amp_res_fig, include = FALSE}
 # Visualizing spread of residuals for lm 
@@ -270,7 +267,7 @@ modbvar <- tidysumamp %>%
 
 <br>
 
-###### **Figure 3. Extractions of model slopes, intercepts, intercept variance and residual variance for each imputed dataset**
+###### **Figure 2. Extractions of model slopes, intercepts, intercept variance and residual variance for each imputed dataset**
 
 <br>
 
@@ -279,7 +276,7 @@ modbvar <- tidysumamp %>%
 # Plot all of the beta's for age mixing pattern in 
 # each of the 100 datasets (by imputation and gender)
 slopeplot <- modslopeint %>%
-  filter(term == "agemean") %>%
+  filter(term == "age0") %>%
   ggplot(aes(x = .imp, y = estimate)) +
   geom_point() +
   geom_pointrange(aes(ymax = estimate + 2 * std.error,
@@ -339,13 +336,8 @@ bvarplot <- modbvar %>%
 bvarplot
 ```
 
-<br>
 
-###### **Figure 4. Fraction of relationships with different partner age groups, among those who are HIV positive**
-
-<br>
-
-```{r age_hiv_fig, echo = FALSE}
+```{r age_hiv_fig, include = FALSE}
 # Create dataframe that summarizes the proportion of relationships
 # in different partner age groups for people who are HIV
 # positive
@@ -384,12 +376,12 @@ dfamphivw <- dfamp %>%
 
 
 # Now fit separate models for men and women
-amphivmodm <- lme(agep ~ agemean, 
+amphivmodm <- lme(agep ~ age0, 
            data = dfamphivm, 
            random = ~1 | id,  
            method = "REML")
 
-amphivmodw <- lme(agep ~ agemean, 
+amphivmodw <- lme(agep ~ age0, 
            data = dfamphivw, 
            random = ~1 | id,
            method = "REML")
@@ -409,7 +401,7 @@ comb <- bind_rows(dfamphivm, dfamphivw)
 
 <br>
 
-###### **Figure 5. Age mixing pattern for those who are HIV positive**
+###### **Figure 3. Age mixing pattern for those who are HIV positive**
 
 <br>
 
@@ -469,24 +461,24 @@ impsexbw <- impsex %>%
 
 tidysum <- impsexbw %>% # A model will be applied to all imputations and sex
   mutate(modelbw = map(data, bwmodel), # bwmodel is function for nb bw model, model as stored as var in nested df
-         modelmcp = map(data, mcpmodel),
+         # modelmcp = map(data, mcpmodel),
          modelmcpbw = map(data, mcpbwmodel),
          modelmcpfull = map(data, ~mcpmodel(.x, med = TRUE)),
          modelsumbw = map(modelbw, tidygam), # Create tidy summary of each model and store as modelsum var in nested df
-         modelsummcp = map(modelmcp, tidygam),
+         # modelsummcp = map(modelmcp, tidygam),
          modelsumbwmcp = map(modelmcpbw, tidygam),
          modelsummcpfull = map(modelmcpfull, tidygam),
-         predsbwage = map2(modelbw, data, ~gampreds(.x, .y, xvar = "age")), # Create predictions across dif vals of age (our spline var) 
-         predsmcpage = map2(modelmcp, data, ~gampreds(.x, .y, xvar = "age")),
-         predsbwmcpage = map2(modelmcpbw, data, ~gampreds(.x, .y, xvar = "age")),
-         predsmcpfullage = map2(modelmcpfull, data, ~gampreds(.x, .y, xvar = "age")))
+         predsbwage = map(modelbw, gampredsage), # Create predictions across dif vals of age (our spline var) 
+         # predsmcpage = map(modelmcp, gampredsage),
+         predsbwmcpage = map(modelmcpbw, gampredsage),
+         predsmcpfullage = map(modelmcpfull, gampredsage))
 
 # Unnest the tidy summary, to see the tidy model estimates for each model
 bwmodcoef <- tidysum %>%
   unnest(modelsumbw, .drop = TRUE) 
 
-mcpmodcoef <- tidysum %>%
-  unnest(modelsummcp, .drop = TRUE)
+# mcpmodcoef <- tidysum %>%
+#   unnest(modelsummcp, .drop = TRUE)
 
 mcpbwmodcoef <- tidysum %>%
   unnest(modelsumbwmcp, .drop = TRUE)
@@ -499,8 +491,8 @@ mcpfullmodcoef <- tidysum %>%
 bwmodpredage <- tidysum %>%
   unnest(predsbwage, .drop = TRUE)
 
-mcpmodpredage <- tidysum %>%
-  unnest(predsmcpage, .drop = TRUE)
+# mcpmodpredage <- tidysum %>%
+#   unnest(predsmcpage, .drop = TRUE)
 
 mcpbwmodpredage <- tidysum %>%
   unnest(predsbwmcpage, .drop = TRUE)
@@ -511,7 +503,7 @@ mcpfullmodpredage <- tidysum %>%
 ```
 
 
-```{r sb_hiv_setup, include = FALSE, cache = TRUE}
+```{r sb_hiv_setup, include = FALSE}
 # Exclude complete cases dataframe
 # Keep only participants with more than one relationship in the past year
 # Relationship-level sex behaviours
@@ -529,39 +521,39 @@ impsexsb <- dfimp %>%
 # Model must use lmer (instead of lme) because of mediation analyis (if mediate is used)
 
 tidysummed <- impsexsb %>%
-  mutate(modelcf = map(data, cfmodel),
+  mutate(# modelcf = map(data, cfmodel),
          modelcfbw = map(data, cfbwmodel),
          modelcffull = map(data, ~cfmodel(.x, med = TRUE)),
-         modelsf = map(data, sfmodel),
+         # modelsf = map(data, sfmodel),
          modelsfbw = map(data, sfbwmodel),
          modelsffull = map(data, ~sfmodel(.x, med = TRUE)),
-         modelsumcf = map(modelcf, tidygam),
+         # modelsumcf = map(modelcf, tidygam),
          modelsumcfbw = map(modelcfbw, tidygam),
          modelsumcffull = map(modelcffull, tidygam),
-         modelsumsf = map(modelsf, tidygam),
+         # modelsumsf = map(modelsf, tidygam),
          modelsumsfbw = map(modelsfbw, tidygam),
          modelsumsffull = map(modelsffull, tidygam),
-         predcfage = map2(modelcf, data, ~gampreds(.x, .y, xvar = "age")),
-         predcfbwage = map2(modelcfbw, data, ~gampreds(.x, .y, xvar = "age")),
-         predcffullage = map2(modelcffull, data, ~gampreds(.x, .y, xvar = "age")),
-         predsfage = map2(modelsf, data, ~gampreds(.x, .y, xvar = "age")),
-         predsfbwage = map2(modelsfbw, data, ~gampreds(.x, .y, xvar = "age")),
-         predsffullage = map2(modelsffull, data, ~gampreds(.x, .y, xvar = "age")))
+         # predcfage = map(modelcf, gampredsage),
+         predcfbwage = map(modelcfbw, gampredsage),
+         predcffullage = map(modelcffull, gampredsage),
+         # predsfage = map(modelsf, gampredsage),
+         predsfbwage = map(modelsfbw, gampredsage),
+         predsffullage = map(modelsffull, gampredsage))
 
 tidysummed
 
 
 # Unnest the tidy gam cf summary, to see tidy model estimates
-cfmodcoef <- tidysummed %>%
-  unnest(modelsumcf, .drop = TRUE)
+# cfmodcoef <- tidysummed %>%
+#   unnest(modelsumcf, .drop = TRUE)
+# 
+# cfmodcoef
 
-cfmodcoef
-
-# Unnest the tidy gam sf summary, to see tidy model estimates
-sfmodcoef <- tidysummed %>%
-  unnest(modelsumsf, .drop = TRUE)
-
-sfmodcoef
+# # Unnest the tidy gam sf summary, to see tidy model estimates
+# sfmodcoef <- tidysummed %>%
+#   unnest(modelsumsf, .drop = TRUE)
+# 
+# sfmodcoef
 
 # Unnest the tidy gam cfbw summary, to see tidy model estimates
 cfbwmodcoef <- tidysummed %>%
@@ -589,16 +581,16 @@ sffullmodcoef
 
 # Unnest the tidy summary, to see the tidy model predictions for values of age
 # for each gamm model
-cfmodpredage <- tidysummed %>%
-  unnest(predcfage, .drop = TRUE)
+# cfmodpredage <- tidysummed %>%
+#   unnest(predcfage, .drop = TRUE)
+# 
+# cfmodpredage
 
-cfmodpredage
 
-
-sfmodpredage <- tidysummed %>%
-  unnest(predsfage, .drop = TRUE)
-
-sfmodpredage
+# sfmodpredage <- tidysummed %>%
+#   unnest(predsfage, .drop = TRUE)
+# 
+# sfmodpredage
 
 
 cfbwmodpredage <- tidysummed %>%
@@ -625,7 +617,7 @@ sffullmodpredage
 ```
 
 
-```{r pool_bw_coef, include = FALSE}
+```{r pool_bw_coef, include = FALSE, warning = FALSE}
 
 # Now we want to produce a pooled beta for HIV according to 
 # Rubin's rules. To do this we use mice functions
@@ -656,27 +648,27 @@ bwmodpoolw <- part %>%
    exp() %>%
    round(2) 
 
-mcpmodpoolm <- part %>%
-   with(
-     gam(partconcur ~ hiv + s(age) + race,
-         family = binomial,
-         subset = (sex == "Male"))
-     ) %>%
-   pool() %>% # Pool coefficients according to Rubin's Rules
-   summary() %>%
-   exp() %>%
-   round(2) 
- 
-mcpmodpoolw <- part %>%
-   with(
-     gam(partconcur ~ hiv + s(age) + race,
-         family = binomial,
-         subset = (sex == "Female"))
-     ) %>%
-   pool() %>% # Pool according to Rubin's Rules
-   summary() %>%
-   exp() %>%
-   round(2) 
+# mcpmodpoolm <- part %>%
+#    with(
+#      gam(partconcur ~ hiv + s(age) + race,
+#          family = binomial,
+#          subset = (sex == "Male"))
+#      ) %>%
+#    pool() %>% # Pool coefficients according to Rubin's Rules
+#    summary() %>%
+#    exp() %>%
+#    round(2) 
+#  
+# mcpmodpoolw <- part %>%
+#    with(
+#      gam(partconcur ~ hiv + s(age) + race,
+#          family = binomial,
+#          subset = (sex == "Female"))
+#      ) %>%
+#    pool() %>% # Pool according to Rubin's Rules
+#    summary() %>%
+#    exp() %>%
+#    round(2) 
 
 mcpbwmodpoolm <- part %>%
    with(
@@ -729,12 +721,12 @@ mcpfullmodpoolw <- part %>%
  womenEBWRlwr <- bwmodpoolw[2, 6]
  womenEBWRupr <- bwmodpoolw[2, 7]
  
- menor <- mcpmodpoolm[2, 1]  
- menorlwr <- mcpmodpoolm[2, 6] 
- menorupr <- mcpmodpoolm[2, 7] 
- womenor <- mcpmodpoolw[2, 1]
- womenorlwr <- mcpmodpoolw[2, 6]
- womenorupr <- mcpmodpoolw[2, 7]
+ # menor <- mcpmodpoolm[2, 1]  
+ # menorlwr <- mcpmodpoolm[2, 6] 
+ # menorupr <- mcpmodpoolm[2, 7] 
+ # womenor <- mcpmodpoolw[2, 1]
+ # womenorlwr <- mcpmodpoolw[2, 6]
+ # womenorupr <- mcpmodpoolw[2, 7]
  
  
  mcpbwmenor <- mcpbwmodpoolm[2, 1]  
@@ -760,13 +752,11 @@ mcpfullmodpoolw <- part %>%
  mcpfullhivwomenorlwr <- mcpfullmodpoolw[3, 6]
  mcpfullhivwomenorupr <- mcpfullmodpoolw[3, 7]
  
-
- 
 ```
 
 <br>
 
-####### **Figure 6. Distribution of bridge widths for each imputed dataset, by sex and HIV status**
+###### **Figure 4. Distribution of bridge widths for each imputed dataset, by sex and HIV status**
 
 <br>
 
@@ -786,7 +776,7 @@ bwfig
 
 <br>
 
-###### **Figure 7. Model coefficients for relationship between HIV and bridge width. Results from negative binomial, generalized additive models with bridge width as the outcome. This is only among participants who reported more than 1 relationship in the previous year. Models adjust for race and age.**
+###### **Figure 5. Model coefficients for relationship between HIV and bridge width. Results from negative binomial, generalized additive models with bridge width as the outcome. This is only among participants who reported more than 1 relationship in the previous year. Models adjust for race and age.**
 
 <br>
 
@@ -822,7 +812,7 @@ bwhivfig
 
 <br>
 
-###### **Figure 8. Expected bridge widths for different values of age (smooth term), by gender. Each line represents a different imputed dataset. These curves represent typical values of race (black) and hiv status (negative)**
+###### **Figure 6. Expected bridge widths for different values of age (smooth term), by gender. Each line represents a different imputed dataset.**
 
 <br>
 
@@ -842,81 +832,41 @@ bwagefig
 
 ```
 
-<br>
 
-###### **Figure 9. Effect of HIV on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Models are adjusted for age (smooth term) and race.** 
 
-<br>
+```{r mcp_hiv_fig, include = FALSE}
 
-```{r mcp_hiv_fig, echo = FALSE}
-
-ticks <- c(0.5, 1.0, 2.0, 4.0)
-
- label <- c(
-   paste0("Pooled OR: ", menor, "(", menorlwr, "-", menorupr, ")"),
-   paste0("Pooled OR: ", womenor, "(", womenorlwr, "-", womenorupr, ")")
- )
-
-# Plot all the b's for each imputed dataset by sex
-# Annotate with the pooled coefficient from above
-mcphivfig <- mcpmodcoef %>%
-  filter(term == "hivPositive") %>%
-  ggplot(aes(x = .imp, ratio)) +
-   geom_hline(yintercept = 1, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = rupr,
-                      ymin = rlwr)) +
-  facet_grid(sex ~ .) +
-  xlab("Imputation") +
-  ylab("OR") +
-  scale_y_log10(breaks = ticks,
-                limits = c(0.25, 16)) +
-  annotate("text", x = 40, y = 6.5, label = label) +
-  theme
-
-mcphivfig
+# ticks <- c(0.5, 1.0, 2.0, 4.0)
+# 
+#  label <- c(
+#    paste0("Pooled OR: ", menor, "(", menorlwr, "-", menorupr, ")"),
+#    paste0("Pooled OR: ", womenor, "(", womenorlwr, "-", womenorupr, ")")
+#  )
+# 
+# # Plot all the b's for each imputed dataset by sex
+# # Annotate with the pooled coefficient from above
+# mcphivfig <- mcpmodcoef %>%
+#   filter(term == "hivPositive") %>%
+#   ggplot(aes(x = .imp, ratio)) +
+#    geom_hline(yintercept = 1, 
+#              color = "blue") +
+#   geom_point() +
+#   geom_pointrange(aes(ymax = rupr,
+#                       ymin = rlwr)) +
+#   facet_grid(sex ~ .) +
+#   xlab("Imputation") +
+#   ylab("OR, Concurrent Relationship") +
+#   scale_y_log10(breaks = ticks,
+#                 limits = c(0.25, 16)) +
+#   annotate("text", x = 40, y = 6.5, label = label) +
+#   theme
+# 
+# mcphivfig
 ```
 
 <br>
 
-###### **Figure 10. Effect of HIV on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Models are adjusted for bridgewidth, age (smooth term) and race.** 
-
-<br>
-
-```{r mcpfull_hiv_fig, echo = FALSE}
-
-ticks <- c(0.5, 1.0, 2.0, 4.0)
-
- label <- c(
-   paste0("Pooled OR: ", mcpfullhivmenor, "(", mcpfullhivmenorlwr, "-", mcpfullhivmenorupr, ")"),
-   paste0("Pooled OR: ", mcpfullhivwomenor, "(", mcpfullhivwomenorlwr, "-", mcpfullhivwomenorupr, ")")
- )
-
-# Plot all the b's for each imputed dataset by sex
-# Annotate with the pooled coefficient from above
-mcpfullhivfig <- mcpfullmodcoef %>%
-  filter(term == "hivPositive") %>%
-  ggplot(aes(x = .imp, ratio)) +
-   geom_hline(yintercept = 1, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = rupr,
-                      ymin = rlwr)) +
-  facet_grid(sex ~ .) +
-  xlab("Imputation") +
-  ylab("OR") +
-  scale_y_log10(breaks = ticks,
-                limits = c(0.25, 16)) +
-  annotate("text", x = 40, y = 6.5, label = label) +
-  theme
-
-mcpfullhivfig
-```
-
-<br>
-
-###### **Figure 11. Effect of bridgewidth on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Models are adjusted for age (smooth term) and race.** 
+###### **Figure 7. Effect of bridgewidth on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Bridgewidth was treated as a continuous covariate (linear term) in the model. Models are adjusted for age (smooth term) and race.** 
 
 <br>
 
@@ -941,7 +891,7 @@ mcpbwfig <- mcpbwmodcoef %>%
                       ymin = rlwr)) +
   facet_grid(sex ~ .) +
   xlab("Imputation") +
-  ylab("OR") +
+  ylab("OR, Concurrent Relationship") +
   scale_y_log10(breaks = ticks,
                 limits = c(0.50, 2)) +
   annotate("text", x = 40, y = 1.5, label = label) +
@@ -952,11 +902,48 @@ mcpbwfig
 
 <br>
 
-###### **Figure 12. Effect of bridgewidth on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Models are adjusted for hiv, age (smooth term) and race.** 
+###### **Figure 8. Effect of HIV on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Models are adjusted for bridgewidth (hypothesized mediator, and continuous linear term), age (smooth term) and race.** Many confidence intervals and ORs are not showing because there were huge, inflated CI's that were outside the limits of the y-axis.
 
 <br>
 
-```{r mcpfull_bw_fig, echo = FALSE}
+```{r mcpfull_hiv_fig, echo = FALSE, warning = FALSE}
+
+ticks <- c(0.5, 1.0, 2.0, 4.0)
+
+ label <- c(
+   paste0("Pooled OR: ", mcpfullhivmenor, "(", mcpfullhivmenorlwr, "-", mcpfullhivmenorupr, ")"),
+   paste0("Pooled OR: ", mcpfullhivwomenor, "(", mcpfullhivwomenorlwr, "-", mcpfullhivwomenorupr, ")")
+ )
+
+# Plot all the b's for each imputed dataset by sex
+# Annotate with the pooled coefficient from above
+mcpfullhivfig <- mcpfullmodcoef %>%
+  filter(term == "hivPositive") %>%
+  ggplot(aes(x = .imp, ratio)) +
+   geom_hline(yintercept = 1, 
+             color = "blue") +
+  geom_point() +
+  geom_pointrange(aes(ymax = rupr,
+                      ymin = rlwr)) +
+  facet_grid(sex ~ .) +
+  xlab("Imputation") +
+  ylab("OR, Concurrent Relationship") +
+  scale_y_log10(breaks = ticks,
+                limits = c(0.25, 16)) +
+  annotate("text", x = 40, y = 6.5, label = label) +
+  theme
+
+mcpfullhivfig
+```
+
+
+<br>
+
+###### **Figure 9. Effect of bridgewidth (hypothesized mediator, and continuous linear term) on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Models are adjusted for hiv, age (smooth term) and race.** 
+
+<br>
+
+```{r mcpfull_bw_fig, echo = FALSE, warning = FALSE}
 
 ticks <- c(0.5, 1.0, 2.0)
 
@@ -977,7 +964,7 @@ mcpfullbwfig <- mcpfullmodcoef %>%
                       ymin = rlwr)) +
   facet_grid(sex ~ .) +
   xlab("Imputation") +
-  ylab("OR") +
+  ylab("OR, Concurrent Relationship") +
   scale_y_log10(breaks = ticks,
                 limits = c(0.50, 2)) +
   annotate("text", x = 40, y = 1.5, label = label) +
@@ -985,30 +972,26 @@ mcpfullbwfig <- mcpfullmodcoef %>%
 
 mcpfullbwfig
 ```
-<br>
 
-###### **Figure 13. Predicted probabilities of having had a concurrent relationship in the previous year for different values of age (smooth term), by gender. Each line represents a different imputed dataset. These curves represent typical values of race (black) and hiv status (negative)**
 
-<br>
+```{r mcp_age_fig, include = FALSE}
 
-```{r mcp_age_fig, echo = FALSE}
-
-# Spaghetti plot to show each line for dataset by gender
-mcpagefig <- mcpmodpredage %>%
-  ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
-  facet_grid(. ~ sex) +
-  xlab("Age") +
-  ylab("Probability") +
-  theme
-
-mcpagefig
+# # Spaghetti plot to show each line for dataset by gender
+# mcpagefig <- mcpmodpredage %>%
+#   ggplot(aes(x = age, y = pred, group = .imp)) +
+#   geom_line() +
+#   facet_grid(. ~ sex) +
+#   xlab("Age") +
+#   ylab("Probability, Concurrent Relationship") +
+#   theme
+# 
+# mcpagefig
 
 ```
 
 <br>
 
-###### **Figure 14. Predicted probabilities of having had a concurrent relationship in the previous year for different values of age (smooth term), by gender. Each line represents a different imputed dataset. These curves represent typical values of race (black) and bridgewidth (3)**
+###### **Figure 10. Predicted probabilities of having had a concurrent relationship in the previous year for different values of age (smooth term), by gender. Each line represents a different imputed dataset. These models adjust for bridgewidth and race**
 
 <br>
 
@@ -1021,7 +1004,7 @@ mcpbwagefig <- mcpbwmodpredage %>%
   geom_line() +
   facet_grid(. ~ sex) +
   xlab("Age") +
-  ylab("Probability") +
+  ylab("Probability, Concurrent Relationship") +
   theme
 
 mcpbwagefig
@@ -1030,7 +1013,7 @@ mcpbwagefig
 
 <br>
 
-###### **Figure 15. Predicted probabilities of having had a concurrent relationship in the previous year for different values of age (smooth term), by gender. Each line represents a different imputed dataset. These curves represent typical values of race (black), bridgewidth (3) and HIV status (Positive)**
+###### **Figure 10. Predicted probabilities of having had a concurrent relationship in the previous year for different values of age (smooth term), by gender. Each line represents a different imputed dataset. The models adjust for hiv, bridgewidth (mediator), and race**
 
 <br>
 
@@ -1043,70 +1026,37 @@ mcpfullagefig <- mcpfullmodpredage %>%
   geom_line() +
   facet_grid(. ~ sex) +
   xlab("Age") +
-  ylab("Probability") +
+  ylab("Probability, Concurrent Relationship") +
   theme
 
 mcpfullagefig
 
 ```
 
-<br>
 
-###### **Figure 16. Effect of HIV on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for age and race.**
-
-<br>
-
-```{r cf_hiv_fig, echo = FALSE}
-ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
-
-cfhivfig <- cfmodcoef %>%
-  filter(term == "hivPositive") %>%
-  ggplot(aes(x = .imp, ratio)) +
-   geom_hline(yintercept = 1, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = rupr,
-                      ymin = rlwr)) +
-  facet_grid(sex ~ .) +
-  scale_y_log10(breaks = ticks) +
-  xlab("Imputation") +
-  ylab("OR") +
-  theme
-
-cfhivfig
+```{r cf_hiv_fig, include = FALSE}
+# ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
+# 
+# cfhivfig <- cfmodcoef %>%
+#   filter(term == "hivPositive") %>%
+#   ggplot(aes(x = .imp, ratio)) +
+#    geom_hline(yintercept = 1, 
+#              color = "blue") +
+#   geom_point() +
+#   geom_pointrange(aes(ymax = rupr,
+#                       ymin = rlwr)) +
+#   facet_grid(sex ~ .) +
+#   scale_y_log10(breaks = ticks) +
+#   xlab("Imputation") +
+#   ylab("OR, Condom Use") +
+#   theme
+# 
+# cfhivfig
 
 ```
 
-<br>
 
-###### **Figure 17. Effect of HIV on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth, age and race.**
-
-<br>
-
-```{r cffull_hiv_fig, echo = FALSE}
-ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
-
-cffullhivfig <- cffullmodcoef %>%
-  filter(term == "hivPositive") %>%
-  ggplot(aes(x = .imp, ratio)) +
-   geom_hline(yintercept = 1, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = rupr,
-                      ymin = rlwr)) +
-  facet_grid(sex ~ .) +
-  scale_y_log10(breaks = ticks) +
-  xlab("Imputation") +
-  ylab("OR") +
-  theme
-
-cffullhivfig
-
-```
-
-<br>
-
-###### **Figure 18. Effect of bridgewidth on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for age (smooth term) and race.**
+###### **Figure 11. Effect of bridgewidth (mediator, continuous linear term) on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for age (smooth term) and race.**
 
 <br>
 
@@ -1124,7 +1074,7 @@ cfbwfig <- cfbwmodcoef %>%
   facet_grid(sex ~ .) +
   # scale_y_log10(breaks = ticks) +
   xlab("Imputation") +
-  ylab("OR") +
+  ylab("OR, Condom use") +
   theme
 
 cfbwfig
@@ -1133,7 +1083,7 @@ cfbwfig
 
 <br>
 
-###### **Figure 19. Effect of bridgewidth on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for hiv status, age (smooth term) and race.**
+###### **Figure 12. Effect of bridgewidth (mediator, continuous linear term) on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for hiv status, age (smooth term) and race.**
 
 <br>
 
@@ -1151,7 +1101,7 @@ cffullbwfig <- cffullmodcoef %>%
   facet_grid(sex ~ .) +
   # scale_y_log10(breaks = ticks) +
   xlab("Imputation") +
-  ylab("OR") +
+  ylab("OR, Condom Use") +
   theme
 
 cffullbwfig
@@ -1160,28 +1110,49 @@ cffullbwfig
 
 <br>
 
-###### **Figure 20. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models with a random intercept for the participant. Models are adjusted for hiv status and race.**
+###### **Figure 13. Effect of HIV on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth (mediator, continuous linear term), age and race.**
 
 <br>
 
-```{r cf_age_fig, echo = FALSE}
+```{r cffull_hiv_fig, echo = FALSE}
+ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
 
-cfagefig <- cfmodpredage %>%
-  ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
-  facet_grid(. ~ sex) +
-  xlab("Age") +
-  ylab("Probability") +
+cffullhivfig <- cffullmodcoef %>%
+  filter(term == "hivPositive") %>%
+  ggplot(aes(x = .imp, ratio)) +
+   geom_hline(yintercept = 1, 
+             color = "blue") +
+  geom_point() +
+  geom_pointrange(aes(ymax = rupr,
+                      ymin = rlwr)) +
+  facet_grid(sex ~ .) +
+  scale_y_log10(breaks = ticks) +
+  xlab("Imputation") +
+  ylab("OR, Condom Use") +
   theme
 
-cfagefig
+cffullhivfig
 
 ```
 
 
+```{r cf_age_fig, include = FALSE}
+
+# cfagefig <- cfmodpredage %>%
+#   ggplot(aes(x = age, y = pred, group = .imp)) +
+#   geom_line() +
+#   facet_grid(. ~ sex) +
+#   xlab("Age") +
+#   ylab("Probability") +
+#   theme
+# 
+# cfagefig
+
+```
+
 <br>
 
-###### **Figure 21. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth and race.**
+###### **Figure 14. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth (continuous, linear term) and race.**
 
 <br>
 
@@ -1192,7 +1163,7 @@ cfbwagefig <- cfbwmodpredage %>%
   geom_line() +
   facet_grid(. ~ sex) +
   xlab("Age") +
-  ylab("Probability") +
+  ylab("Probability, Condom Use") +
   theme
 
 cfbwagefig
@@ -1201,7 +1172,7 @@ cfbwagefig
 
 <br>
 
-###### **Figure 22. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth, hiv status and race.**
+###### **Figure 15. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth (mediator, continuous linear term), hiv status and race.**
 
 <br>
 
@@ -1212,7 +1183,7 @@ cffullagefig <- cffullmodpredage %>%
   geom_line() +
   facet_grid(. ~ sex) +
   xlab("Age") +
-  ylab("Probability") +
+  ylab("Probability, Condom Use") +
   theme
 
 cffullagefig
@@ -1221,7 +1192,7 @@ cffullagefig
 
 <br>
 
-###### **Figure 23. Distribution of average number of times sex occurred per week in relationships, stratified by gender and imputation dataset**
+###### **Figure 16. Distribution of average number of times sex occurred per week in relationships, stratified by gender and imputation dataset**
 
 <br>
 
@@ -1238,59 +1209,29 @@ sffig
 
 ```
 
-<br>
 
-###### **Figure 24. Effect of HIV on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for age and race.**
+```{r sf_hiv_fig, include = FALSE}
 
-<br>
-
-```{r sf_hiv_fig, echo = FALSE}
-
-sfhivfig <- sfmodcoef %>%
-  filter(term == "hivPositive") %>%
-  ggplot(aes(x = .imp, ratio)) +
-   geom_hline(yintercept = 1, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = rupr,
-                      ymin = rlwr)) +
-  facet_grid(sex ~ .) +
-  xlab("Imputation") +
-  ylab("IRR") +
-  theme
-
-sfhivfig
+# sfhivfig <- sfmodcoef %>%
+#   filter(term == "hivPositive") %>%
+#   ggplot(aes(x = .imp, ratio)) +
+#    geom_hline(yintercept = 1, 
+#              color = "blue") +
+#   geom_point() +
+#   geom_pointrange(aes(ymax = rupr,
+#                       ymin = rlwr)) +
+#   facet_grid(sex ~ .) +
+#   xlab("Imputation") +
+#   ylab("IRR, Sex Frequency") +
+#   theme
+# 
+# sfhivfig
 
 ```
 
 <br>
 
-###### **Figure 25. Effect of HIV on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth, age and race.**
-
-<br>
-
-```{r sffull_hiv_fig, echo = FALSE}
-
-sffullhivfig <- sffullmodcoef %>%
-  filter(term == "hivPositive") %>%
-  ggplot(aes(x = .imp, ratio)) +
-   geom_hline(yintercept = 1, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = rupr,
-                      ymin = rlwr)) +
-  facet_grid(sex ~ .) +
-  xlab("Imputation") +
-  ylab("IRR") +
-  theme
-
-sffullhivfig
-
-```
-
-<br>
-
-###### **Figure 26. Effect of bridgewidth on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for age and race.**
+###### **Figure 17. Effect of bridgewidth (continuous linear term) on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for age (smooth term) and race.**
 
 <br>
 
@@ -1306,16 +1247,40 @@ sfbwfig <- sfbwmodcoef %>%
                       ymin = rlwr)) +
   facet_grid(sex ~ .) +
   xlab("Imputation") +
-  ylab("IRR") +
+  ylab("IRR, Sex Frequency") +
   theme
 
 sfbwfig
 
 ```
+<br>
+
+###### **Figure 18. Effect of HIV on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth (continuous linear term), age (smooth term) and race.**
 
 <br>
 
-###### **Figure 27. Effect of bridgewidth on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for hiv status, age and race.**
+```{r sffull_hiv_fig, echo = FALSE}
+
+sffullhivfig <- sffullmodcoef %>%
+  filter(term == "hivPositive") %>%
+  ggplot(aes(x = .imp, ratio)) +
+   geom_hline(yintercept = 1, 
+             color = "blue") +
+  geom_point() +
+  geom_pointrange(aes(ymax = rupr,
+                      ymin = rlwr)) +
+  facet_grid(sex ~ .) +
+  xlab("Imputation") +
+  ylab("IRR, Sex Frequency") +
+  theme
+
+sffullhivfig
+
+```
+
+<br>
+
+###### **Figure 19. Effect of bridgewidth (mediator, continous linear term) on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for hiv status, age (smooth term) and race.**
 
 <br>
 
@@ -1331,35 +1296,31 @@ sffullbwfig <- sffullmodcoef %>%
                       ymin = rlwr)) +
   facet_grid(sex ~ .) +
   xlab("Imputation") +
-  ylab("IRR") +
+  ylab("IRR, Sex Frequency") +
   theme
 
 sffullbwfig
 
 ```
-<br>
 
-###### **Figure 28. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for hiv status and race.**
 
-<br>
+```{r sf_age_fig, include = FALSE}
 
-```{r sf_age_fig, echo = FALSE}
-
-sfagefig <- sfmodpredage %>%
-  ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
-  facet_grid(. ~ sex) +
-  xlab("Age") +
-  ylab("Predicted average number of times sex occurred per week") +
-  theme
-
-sfagefig
+# sfagefig <- sfmodpredage %>%
+#   ggplot(aes(x = age, y = pred, group = .imp)) +
+#   geom_line() +
+#   facet_grid(. ~ sex) +
+#   xlab("Age") +
+#   ylab("Predicted average number of times sex occurred per week") +
+#   theme
+# 
+# sfagefig
 
 ```
 
 <br>
 
-###### **Figure 29. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth and race.**
+###### **Figure 20. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth (continuous linear term) and race.**
 
 <br>
 
@@ -1379,7 +1340,7 @@ sfbwagefig
 
 <br>
 
-###### **Figure 30. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth, hiv status, and race.**
+###### **Figure 21. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth (mediator, continuous linear term), hiv status, and race.**
 
 <br>
 

@@ -325,7 +325,7 @@ OrdPred <- function(mod, n, modAns){
 # This is specifically for age-mixing patterns
 
 ampmodel <- function(df) {
-  lme(agep ~ agemean, 
+  lme(agep ~ age0, 
       data = df, 
       random = ~1 | id,
       method = "REML")
@@ -601,13 +601,13 @@ lmesplinepreds <- function(mod) {
 
 }
 
-# This function takes the model object from a gamm4 model,
+# This function takes the model object from a gam or gamm4 model,
 # a dataframe, and the explanatory variable that is a smooth
 # term in the model and produces predictions for that particular
 # smooth term. It stores and returns the result as a tidy df.
 
 
-gampreds <- function(mod, data, xvar) {
+gampredsage <- function(mod) {
   
   # Determine the model family, so that we can do the 
   # predictions on the right scale
@@ -623,22 +623,16 @@ gampreds <- function(mod, data, xvar) {
     
   }
   
-  # Create the model prediction grid
-  # data_grid function uses the "typical" values to base
-  # the predictions on
-  if(xvar == "age") {
     
-    grid <- data %>%
-      modelr::data_grid(age = seq_range(age, 50, pretty = TRUE),
-                        .model = mod)
-    
-  } else {
-    
-    grid <- data %>%
-      modelr::data_grid(bridgewidth = seq_range(bridgewidth, 20, pretty = TRUE),
-                        .model = mod)
-  }
+  # grid <- data %>%
+  #   modelr::data_grid(age = seq_range(age, 50, pretty = TRUE),
+  #                     .model = mod)
   
+  grid <- expand.grid(hiv = "Negative",
+                      race = "Black",
+                      bridgewidth = 5, 
+                      age = seq(15, 70, length.out = 50))
+    
   # Take the grid from above and create predictions.  
   grid %>%
     mutate(pred = predict(mod,
@@ -649,4 +643,5 @@ gampreds <- function(mod, data, xvar) {
                         type = type,
                         se.fit = TRUE)[[2]])
 }
+
 

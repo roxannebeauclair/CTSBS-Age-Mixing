@@ -343,11 +343,22 @@ bvar <- function(model) {
     as.numeric() %>%
     round(2)
   
-  lwrbsd <- intervals(model)$reStruct$id$lower  %>%
-    round(2)
+  # The tryCatch function is used so that the function will keep going even 
+  # if there is an error for one of the models. If there is an error, it
+  # will just make the value missing
+  lwrbsd <- tryCatch({
+    intervals(model)$reStruct$id$lower  %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
   
-  uprbsd <- intervals(model)$reStruct$id$upper  %>%
-    round(2)
+  uprbsd <- tryCatch({
+    intervals(model)$reStruct$id$upper  %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
   
   data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
 }
@@ -364,11 +375,22 @@ wvar <- function(model) {
     as.numeric() %>%
     round(2)
   
-  lwrwsd <- (intervals(model)$sigma[1])  %>%
-    round(2)
+  # The tryCatch function is used so that the function will keep going even 
+  # if there is an error for one of the models. If there is an error, it
+  # will just make the value missing
+  lwrwsd <- tryCatch({
+    (intervals(model)$sigma[1])  %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
   
-  uprwsd <- intervals(model)$sigma[3]  %>%
-    round(2)
+  uprwsd <- tryCatch({
+    (intervals(model)$sigma[3])  %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
   
   data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
 }

@@ -124,7 +124,7 @@ rm(df, df1, df2, df3, df4, df5)
 
 <br>
 
-**Research question:** 
+**Research questions:** 
 
 1. Describe the age-mixing pattern in the CTSBS population. Does the age-mixing pattern of HIV positive participants differ from the general population?
 2. At the individual-level are large ranges in partner ages (bridgewidths) associated with HIV status of a participant?
@@ -222,11 +222,19 @@ comb_all <- bind_rows(comb, comb2)
 
 <br>
 
-###### **Figure 1. Age mixing pattern for randomly selected imputed dataset. Linear mixed effects model without hetero skedastic variance explicitly modeled. The top row represents the male and female age mixing patterns in the whole study population, while the bottom row is for only those with HIV**
+### **AGE-MIXING PATTERN**
 
 <br>
 
-```{r amp_fig, echo = FALSE}
+Here I used linear mixed effects models that were stratified by sex and contained a random intercept for the participant. For the plots, I randomly selected an imputed dataset to visualize the pattern in that population. I did not explicitly model heteroskedastic variance, like we did with the LNS data, because plots of the residuals did not seem to indicate increasing variance with age.
+
+<br>
+
+###### **Figure 1. Age mixing pattern for randomly selected imputed dataset. The top row represents the male and female age mixing patterns in the whole study population, while the bottom row is for only those with HIV**
+
+<br>
+
+```{r amp_fig, echo = FALSE, warning = FALSE}
 # Figure visualizing the age mixing pattern
 ampfig <- comb_all %>%
   ggplot(aes(x = age, y = pred)) +
@@ -253,7 +261,7 @@ ampfig
 ```
 
 
-```{r amp_res_fig, include = FALSE}
+```{r amp_res_fig, include = FALSE, warning = FALSE}
 # Visualizing spread of residuals for lm 
 ampresfig1 <- comb_all %>%
   ggplot(aes(resid)) +
@@ -276,7 +284,7 @@ ampresfig2
 
 ```
 
-```{r amp_all_setup, include = FALSE}
+```{r amp_all_setup, include = FALSE, warning = FALSE}
 
 # Create a dataset that nests all of the datasets according to
 # gender, imputation, and whether they are in the general population
@@ -325,7 +333,7 @@ modbvar <- tidysumamp %>%
 
 <br>
 
-```{r amp_model_slope_plot, echo = FALSE}
+```{r amp_model_slope_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 
 # Plot all of the beta's for age mixing pattern in 
 # each of the 100 datasets (by imputation and gender)
@@ -344,7 +352,7 @@ slopeplot <- modslopeint %>%
 slopeplot
 ```
 
-```{r amp_model_intercept_plot, echo = FALSE}
+```{r amp_model_intercept_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot all of the intercepts for age mixing pattern in 
 # each of the 100 datasets (by imputation and gender)
 interplot <- modslopeint %>%
@@ -356,13 +364,13 @@ interplot <- modslopeint %>%
   facet_grid(population ~ sex) +
   coord_flip() +
   xlab("Imputation") +
-  ylab("Partner age for average age") +
+  ylab("Partner age for 15 year olds") +
   theme
 
 interplot
 ```
 
-```{r amp_model_wvar_plot, echo = FALSE}
+```{r amp_model_wvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the residual variances for age mixing pattern
 # in each of the 100 datasets (by imputation and gender)
 wvarplot <- modwvar %>%
@@ -379,7 +387,7 @@ wvarplot <- modwvar %>%
 wvarplot
 ```
 
-```{r amp_model_bvar_plot, echo = FALSE}
+```{r amp_model_bvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the between subject variances for age mixing pattern
 # in each of the 100 datasets (by imputation and gender)
 bvarplot <- modbvar %>%
@@ -398,11 +406,11 @@ bvarplot
 ```
 
 
-```{r age_hiv_fig, include = FALSE}
+```{r age_hiv_fig, include = FALSE, warning = FALSE, fig.height = 8}
 # Create dataframe that summarizes the proportion of relationships
 # in different partner age groups for people who are HIV
 # positive
-hivbyage <- impsexamp %>%
+hivbyage <- impsexpopamp %>%
   unnest() %>%
   ungroup() %>%
   filter(.imp == n & hiv == "Positive") %>%
@@ -426,8 +434,15 @@ hivageplot
 
 <br>
 
+### **DOES HIV STATUS PREDICT BRIDGEWIDTH?**
 
-```{r bw_hiv_setup, include = FALSE}
+<br>
+
+Here I used generalised additive models with negative binomial regression to regress bridgewidths on HIV status of the participant before enterring our study. In these models, the participant is the unit of observation and only participants reporting more than one partner in the previous year were included. Separate models were created for men and women, as well as imputed datasets. The models adjust for age(smooth term) and race. 
+
+<br>
+
+```{r bw_hiv_setup, include = FALSE, warning = FALSE}
 # Exclude complete cases dataframe
 # Keep only participants with more than one relationship in the past year
 impsex <- partdfimp %>% 
@@ -442,6 +457,8 @@ bwbyimpsex <- impsex %>%
   filter(relcount > 1) %>%
   summarise(n = n(),
             Median = median(bridgewidth),
+            Mean = mean(bridgewidth),
+            sd = sd(bridgewidth),
             lwr = summary(bridgewidth)[[2]],
             upr = summary(bridgewidth)[[5]])
 
@@ -497,7 +514,7 @@ mcpfullmodpredage <- tidysum %>%
 ```
 
 
-```{r sb_hiv_setup, include = FALSE}
+```{r sb_hiv_setup, include = FALSE, warning = FALSE}
 # Exclude complete cases dataframe
 # Keep only participants with more than one relationship in the past year
 # Relationship-level sex behaviours
@@ -750,14 +767,15 @@ mcpfullmodpoolw <- part %>%
 
 <br>
 
-###### **Figure 4. Distribution of bridge widths for each imputed dataset, by sex and HIV status**
+###### **Figure 3. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
 
 <br>
 
-```{r bw_density_fig, echo = FALSE}
+```{r bw_density_fig, echo = FALSE, warning = FALSE}
 
 # Check spread of bridgwidths for each grouped dataset
-bwfig <- impsex %>%
+bwfig <- impsexbw %>%
+  unnest() %>%
   ggplot(aes(x = bridgewidth, group = .imp)) +
   geom_density(adjust = 2) +
   facet_grid(hiv ~ sex) +
@@ -768,13 +786,14 @@ bwfig <- impsex %>%
 bwfig
 ```
 
-<br>
-
-###### **Figure 5. Model coefficients for relationship between HIV and bridge width. Results from negative binomial, generalized additive models with bridge width as the outcome. This is only among participants who reported more than 1 relationship in the previous year. Models adjust for race and age.**
 
 <br>
 
-```{r bw_hiv_fig, echo = FALSE}
+###### **Figure 4. Model coefficients for relationship between HIV and bridgewidth.**
+
+<br>
+
+```{r bw_hiv_fig, echo = FALSE, warning = FALSE}
 
 ticks <- c(0.5, 1.0, 2.0, 4.0)
 
@@ -806,11 +825,11 @@ bwhivfig
 
 <br>
 
-###### **Figure 6. Expected bridge widths for different values of age (smooth term), by gender. Each line represents a different imputed dataset.**
+###### **Figure 5. Expected bridge widths for different values of age (smooth term), by gender.**
 
 <br>
 
-```{r bw_age_fig, echo = FALSE}
+```{r bw_age_fig, echo = FALSE, warning = FALSE}
 
 # Plot expected BW's for different values of age (or spline variable)
 # Spaghetti plot to show each line for dataset by gender
@@ -826,9 +845,41 @@ bwagefig
 
 ```
 
+<br>
+
+### **ARE LARGE BRIDGEWIDTHS ASSOCIATED WITH PARTICIPANTS HAVING A CONCURRENT RELATIONSHIP IN THE PREVIOUS YEAR?**
+
+<br>
+
+Here, I regressed a binary partnership-level concurrency indicator on bridgewidths using a generalized additive logistic regression model. Again, the participant was the unit of observation and only participants reporting more than one relationship in the previous year were included. Models were applied to different imputed datasets and stratified by gender. All models adjust for age(smooth term) and race. Bridgewidth was treated as a continuous linear term because exploration using GAMS indicated it should be.
+
+###### **Figure 6. Distribution of the percentage of participants who had a concurrent relationship in the previous year, stratified by gender and across all imputations.**
+
+<br>
+
+```{r mcp_freq_fig, echo = FALSE, warning = FALSE}
+mcpdf <- impsexbw %>%
+  unnest() %>%
+  group_by(.imp, sex, partconcur) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2))
 
 
-```{r mcp_hiv_fig, include = FALSE}
+mcpfig <- mcpdf %>%
+  ggplot(aes(x = partconcur, y = prop)) +
+  geom_boxplot() +
+  facet_grid(. ~ sex) +
+  xlab("Had a concurrent relationship in previous year") +
+  ylab("Percentage of participants") +
+  theme
+
+mcpfig
+
+```
+
+
+
+```{r mcp_hiv_fig, include = FALSE, warning = FALSE}
 
 # ticks <- c(0.5, 1.0, 2.0, 4.0)
 # 
@@ -860,11 +911,11 @@ bwagefig
 
 <br>
 
-###### **Figure 7. Effect of bridgewidth on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Bridgewidth was treated as a continuous covariate (linear term) in the model. Models are adjusted for age (smooth term) and race.** 
+###### **Figure 7. Effect of bridgewidth (Odds Ratios, OR) on whether a participant had a concurrent relationship in the previous year, stratified by gender.** 
 
 <br>
 
-```{r mcp_bw_fig, echo = FALSE}
+```{r mcp_bw_fig, echo = FALSE, warning = FALSE}
 
 ticks <- c(0.5, 1.0, 2.0)
 
@@ -896,7 +947,33 @@ mcpbwfig
 
 <br>
 
-###### **Figure 8. Effect of HIV on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Models are adjusted for bridgewidth (hypothesized mediator, and continuous linear term), age (smooth term) and race.** Many confidence intervals and ORs are not showing because there were huge, inflated CI's that were outside the limits of the y-axis.
+###### **Figure 8. Predicted probabilities of having had a concurrent relationship in the year before the survey for different values of age, by gender.**
+
+<br>
+
+```{r mcpbw_age_fig, echo = FALSE, warning = FALSE}
+
+# Plot expected BW's for different values of age
+# Spaghetti plot to show each line for dataset by gender
+mcpbwagefig <- mcpbwmodpredage %>%
+  ggplot(aes(x = age, y = pred, group = .imp)) +
+  geom_line() +
+  facet_grid(. ~ sex) +
+  xlab("Age") +
+  ylab("Probability, Concurrent Relationship") +
+  theme
+
+mcpbwagefig
+
+```
+
+<br>
+
+The following plots, visualize models where we are interested in the effect of whether the HIV status of a participant was associated with them having a subsequent concurrent relationship (but in the year before the survey). In these models HIV was our exposure of interest, and bridgewidth a hypothesized mediator. Again these were adjusted for age(smooth term) and race.
+
+<br>
+
+###### **Figure 9. Effect of HIV (Odds Ratios, OR) on whether a participant had a concurrent relationship in the year before the survey, stratified by gender.** Many confidence intervals and ORs are not showing because there were huge, inflated CI's that were outside the limits of the y-axis.
 
 <br>
 
@@ -930,10 +1007,9 @@ mcpfullhivfig <- mcpfullmodcoef %>%
 mcpfullhivfig
 ```
 
-
 <br>
 
-###### **Figure 9. Effect of bridgewidth (hypothesized mediator, and continuous linear term) on whether a participant had a concurrent relationship in the previous year, stratified by gender. Odds Ratios (ORs) are from generalized additive models. Models are adjusted for hiv, age (smooth term) and race.** 
+###### **Figure 10. Effect of bridgewidth (Odds Ratio, OR) on whether a participant had a concurrent relationship in the year before the survey, stratified by gender.** 
 
 <br>
 
@@ -967,8 +1043,9 @@ mcpfullbwfig <- mcpfullmodcoef %>%
 mcpfullbwfig
 ```
 
+<br>
 
-```{r mcp_age_fig, include = FALSE}
+```{r mcp_age_fig, include = FALSE, warning = FALSE}
 
 # # Spaghetti plot to show each line for dataset by gender
 # mcpagefig <- mcpmodpredage %>%
@@ -985,33 +1062,11 @@ mcpfullbwfig
 
 <br>
 
-###### **Figure 10. Predicted probabilities of having had a concurrent relationship in the previous year for different values of age (smooth term), by gender. Each line represents a different imputed dataset. These models adjust for bridgewidth and race**
+###### **Figure 11. Predicted probabilities of having had a concurrent relationship in the previous year for different values of age (smooth term), by gender.**
 
 <br>
 
-```{r mcpbw_age_fig, echo = FALSE}
-
-# Plot expected BW's for different values of age
-# Spaghetti plot to show each line for dataset by gender
-mcpbwagefig <- mcpbwmodpredage %>%
-  ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
-  facet_grid(. ~ sex) +
-  xlab("Age") +
-  ylab("Probability, Concurrent Relationship") +
-  theme
-
-mcpbwagefig
-
-```
-
-<br>
-
-###### **Figure 10. Predicted probabilities of having had a concurrent relationship in the previous year for different values of age (smooth term), by gender. Each line represents a different imputed dataset. The models adjust for hiv, bridgewidth (mediator), and race**
-
-<br>
-
-```{r mcpfull_age_fig, echo = FALSE}
+```{r mcpfull_age_fig, echo = FALSE, warning = FALSE}
 
 # Plot expected BW's for different values of age
 # Spaghetti plot to show each line for dataset by gender
@@ -1027,8 +1082,44 @@ mcpfullagefig
 
 ```
 
+<br>
 
-```{r cf_hiv_fig, include = FALSE}
+### **ARE LARGE BRIDGWIDTHS ASSOCIATED WITH USING ALWAYS USING CONDOMS IN A RELATIONSHIP?**
+
+<br>
+
+I regressed a binary relationship-level condom use indicator on bridgewidths using a generalized additive mixed models with a logistic outcome and random intercept for participant. The relationship was the unit of observation and only relationships from participants reporting more than one relationship in the previous year were included. Models were applied to different imputed datasets and stratified by gender. All models adjust for age(smooth term) and race. Bridgewidth was treated as a continuous linear term because exploration using GAMS indicated it should be. 
+<br>
+
+###### **Figure 12. Distribution of the proportions of relationships using condoms, stratified by sex and across all imputations**
+
+<br>
+
+
+```{r cf_freq_fig, echo = FALSE, warning = FALSE}
+cfdf <- impsexsb %>%
+  unnest() %>%
+  group_by(.imp, sex, cf) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2))
+
+
+cffig <- cfdf %>%
+  ggplot(aes(x = cf, y = prop)) +
+  geom_boxplot() +
+  facet_grid(. ~ sex) +
+  xlab("Condom use") +
+  ylab("Proportion of relationships") +
+  theme
+
+cffig
+
+```
+
+<br>
+
+
+```{r cf_hiv_fig, include = FALSE, warning = FALSE}
 # ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
 # 
 # cfhivfig <- cfmodcoef %>%
@@ -1049,12 +1140,13 @@ mcpfullagefig
 
 ```
 
+<br>
 
-###### **Figure 11. Effect of bridgewidth (mediator, continuous linear term) on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for age (smooth term) and race.**
+###### **Figure 13. Effect of bridgewidth (Odds Ratios, OR) on "Always" using a condom in relationship, stratified by gender.**
 
 <br>
 
-```{r cf_bw_fig, echo = FALSE}
+```{r cf_bw_fig, echo = FALSE, warning = FALSE}
 ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
 
 cfbwfig <- cfbwmodcoef %>%
@@ -1077,38 +1169,35 @@ cfbwfig
 
 <br>
 
-###### **Figure 12. Effect of bridgewidth (mediator, continuous linear term) on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for hiv status, age (smooth term) and race.**
+###### **Figure 14. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender.**
 
 <br>
 
-```{r cffull_bw_fig, echo = FALSE}
-ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
+```{r cfbw_age_fig, echo = FALSE, warning = FALSE}
 
-cffullbwfig <- cffullmodcoef %>%
-  filter(term == "bridgewidth") %>%
-  ggplot(aes(x = .imp, ratio)) +
-   geom_hline(yintercept = 1, 
-             color = "blue") +
-  geom_point() +
-  geom_pointrange(aes(ymax = rupr,
-                      ymin = rlwr)) +
-  facet_grid(sex ~ .) +
-  # scale_y_log10(breaks = ticks) +
-  xlab("Imputation") +
-  ylab("OR, Condom Use") +
+cfbwagefig <- cfbwmodpredage %>%
+  ggplot(aes(x = age, y = pred, group = .imp)) +
+  geom_line() +
+  facet_grid(. ~ sex) +
+  xlab("Age") +
+  ylab("Probability, Condom Use") +
   theme
 
-cffullbwfig
+cfbwagefig
 
 ```
 
 <br>
 
-###### **Figure 13. Effect of HIV on "Always" using a condom in relationship, stratified by gender. Odds Ratios (ORs) are from generalized additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth (mediator, continuous linear term), age and race.**
+The following plots, visualize models where we are interested in the effect of whether the HIV status of a participant was associated with always using a condom in relationships. In these models HIV was our exposure of interest, and bridgewidth a hypothesized mediator. Again these were adjusted for age(smooth term) and race.
 
 <br>
 
-```{r cffull_hiv_fig, echo = FALSE}
+###### **Figure 15. Effect of HIV (Odds Ratios, OR) on "Always" using a condom in relationship, stratified by gender.**
+
+<br>
+
+```{r cffull_hiv_fig, echo = FALSE, warning = FALSE}
 ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
 
 cffullhivfig <- cffullmodcoef %>%
@@ -1129,8 +1218,35 @@ cffullhivfig
 
 ```
 
+<br>
 
-```{r cf_age_fig, include = FALSE}
+###### **Figure 16. Effect of bridgewidth (Odds Ratios, OR) on "Always" using a condom in relationship, stratified by gender. **
+
+<br>
+
+```{r cffull_bw_fig, echo = FALSE, warning = FALSE}
+ticks <- c(0.5, 1.0, 2.0, 4.0, 8.0)
+
+cffullbwfig <- cffullmodcoef %>%
+  filter(term == "bridgewidth") %>%
+  ggplot(aes(x = .imp, ratio)) +
+   geom_hline(yintercept = 1, 
+             color = "blue") +
+  geom_point() +
+  geom_pointrange(aes(ymax = rupr,
+                      ymin = rlwr)) +
+  facet_grid(sex ~ .) +
+  # scale_y_log10(breaks = ticks) +
+  xlab("Imputation") +
+  ylab("OR, Condom Use") +
+  theme
+
+cffullbwfig
+
+```
+
+
+```{r cf_age_fig, include = FALSE, warning = FALSE}
 
 # cfagefig <- cfmodpredage %>%
 #   ggplot(aes(x = age, y = pred, group = .imp)) +
@@ -1146,31 +1262,11 @@ cffullhivfig
 
 <br>
 
-###### **Figure 14. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth (continuous, linear term) and race.**
+###### **Figure 17. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender.**
 
 <br>
 
-```{r cfbw_age_fig, echo = FALSE}
-
-cfbwagefig <- cfbwmodpredage %>%
-  ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
-  facet_grid(. ~ sex) +
-  xlab("Age") +
-  ylab("Probability, Condom Use") +
-  theme
-
-cfbwagefig
-
-```
-
-<br>
-
-###### **Figure 15. Predicted probabilities of "Always" using a condom in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models with a random intercept for the participant. Models are adjusted for bridgewidth (mediator, continuous linear term), hiv status and race.**
-
-<br>
-
-```{r cffull_age_fig, echo = FALSE}
+```{r cffull_age_fig, echo = FALSE, warning = FALSE}
 
 cffullagefig <- cffullmodpredage %>%
   ggplot(aes(x = age, y = pred, group = .imp)) +
@@ -1186,11 +1282,19 @@ cffullagefig
 
 <br>
 
-###### **Figure 16. Distribution of average number of times sex occurred per week in relationships, stratified by gender and imputation dataset**
+### **ARE LARGE BRIDGEWIDTHS ASSOCIATED WITH HIGHER SEX FREQUENCY IN RELATIONSHIPS?** 
 
 <br>
 
-```{r sf_fig, echo = FALSE}
+I regressed sex frequency on bridgewidth. Sex frequency is a relationship-level variable that represents the average number of times a participant had sex per week with that partner. I used generalized additive mixed models with a poisson outcome and random intercept for participant. The relationship was the unit of observation and only relationships from participants reporting more than one relationship in the previous year were included. Models were applied to different imputed datasets and stratified by gender. All models adjust for age(smooth term) and race. Bridgewidth was treated as a continuous linear term because exploration using GAMS indicated it should be. 
+
+<br>
+
+###### **Figure 18. Distribution of average number of times sex occurred per week in relationships, stratified by gender and imputation dataset**
+
+<br>
+
+```{r sf_fig, echo = FALSE, warning = FALSE}
 
 sffig <- impsexsb %>%
   unnest() %>%
@@ -1204,7 +1308,7 @@ sffig
 ```
 
 
-```{r sf_hiv_fig, include = FALSE}
+```{r sf_hiv_fig, include = FALSE, warning = FALSE}
 
 # sfhivfig <- sfmodcoef %>%
 #   filter(term == "hivPositive") %>%
@@ -1225,11 +1329,11 @@ sffig
 
 <br>
 
-###### **Figure 17. Effect of bridgewidth (continuous linear term) on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for age (smooth term) and race.**
+###### **Figure 19. Effect of bridgewidth (Incidence Rate Ratios, IRRs) on average number of times sex occurred per week in the relationship, stratified by gender.**
 
 <br>
 
-```{r sf_bw_fig, echo = FALSE}
+```{r sf_bw_fig, echo = FALSE, warning = FALSE}
 
 sfbwfig <- sfbwmodcoef %>%
   filter(term == "bridgewidth") %>%
@@ -1247,13 +1351,38 @@ sfbwfig <- sfbwmodcoef %>%
 sfbwfig
 
 ```
-<br>
-
-###### **Figure 18. Effect of HIV on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth (continuous linear term), age (smooth term) and race.**
 
 <br>
 
-```{r sffull_hiv_fig, echo = FALSE}
+###### **Figure 20. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender.**
+
+<br>
+
+```{r sfbw_age_fig, echo = FALSE, warning = FALSE}
+
+sfbwagefig <- sfbwmodpredage %>%
+  ggplot(aes(x = age, y = pred, group = .imp)) +
+  geom_line() +
+  facet_grid(. ~ sex) +
+  xlab("Age") +
+  ylab("Predicted average number of times sex occurred per week") +
+  theme
+
+sfbwagefig
+
+```
+
+<br>
+
+The following plots, visualize models where we are interested in the effect of whether the HIV status of a participant was associated with sex frequency in relationships. In these models HIV was our exposure of interest, and bridgewidth a hypothesized mediator. Again these were adjusted for age(smooth term) and race.
+
+<br>
+
+###### **Figure 21. Effect of HIV (Incidence Rate Ratios, IRR) on average number of times sex occurred per week in the relationship, stratified by gender.**
+
+<br>
+
+```{r sffull_hiv_fig, echo = FALSE, warning = FALSE}
 
 sffullhivfig <- sffullmodcoef %>%
   filter(term == "hivPositive") %>%
@@ -1274,11 +1403,11 @@ sffullhivfig
 
 <br>
 
-###### **Figure 19. Effect of bridgewidth (mediator, continous linear term) on average number of times sex occurred per week in the relationship, stratified by gender. Incidence Rate Ratios (IRRs) are from generalized additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for hiv status, age (smooth term) and race.**
+###### **Figure 22. Effect of bridgewidth (Incidence Rate Ratios, IRR) on average number of times sex occurred per week in the relationship, stratified by gender.**
 
 <br>
 
-```{r sffull_bw_fig, echo = FALSE}
+```{r sffull_bw_fig, echo = FALSE, warning = FALSE}
 
 sffullbwfig <- sffullmodcoef %>%
   filter(term == "bridgewidth") %>%
@@ -1298,7 +1427,7 @@ sffullbwfig
 ```
 
 
-```{r sf_age_fig, include = FALSE}
+```{r sf_age_fig, include = FALSE, warning = FALSE}
 
 # sfagefig <- sfmodpredage %>%
 #   ggplot(aes(x = age, y = pred, group = .imp)) +
@@ -1312,33 +1441,14 @@ sffullbwfig
 
 ```
 
-<br>
-
-###### **Figure 20. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth (continuous linear term) and race.**
 
 <br>
 
-```{r sfbw_age_fig, echo = FALSE}
-
-sfbwagefig <- sfbwmodpredage %>%
-  ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
-  facet_grid(. ~ sex) +
-  xlab("Age") +
-  ylab("Predicted average number of times sex occurred per week") +
-  theme
-
-sfbwagefig
-
-```
+###### **Figure 23. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender.**
 
 <br>
 
-###### **Figure 21. Predicted average number of times sex occurred per week in a relationship for different ages of participant, stratified by gender. The predictions are from generalised additive mixed models (poisson outcome) with a random intercept for the participant. Models are adjusted for bridgewidth (mediator, continuous linear term), hiv status, and race.**
-
-<br>
-
-```{r sffull_age_fig, echo = FALSE}
+```{r sffull_age_fig, echo = FALSE, warning = FALSE}
 
 sffullagefig <- sffullmodpredage %>%
   ggplot(aes(x = age, y = pred, group = .imp)) +
@@ -1353,7 +1463,7 @@ sffullagefig
 ```
 
 
-```{r close, include = FALSE}
+```{r close, include = FALSE, warning = FALSE}
 # ====================================================
 # Detach libraries and remove objects from environment
 # ====================================================

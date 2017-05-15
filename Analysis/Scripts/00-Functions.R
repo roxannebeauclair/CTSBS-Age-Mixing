@@ -328,6 +328,7 @@ ampmodel <- function(df) {
   lme(agep ~ age0, 
       data = df, 
       random = ~1 | id,
+      weights = varPower(value = 0.5, form = ~age0 + 1),
       method = "REML")
 }
 

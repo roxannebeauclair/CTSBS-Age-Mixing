@@ -1,5 +1,5 @@
 ---
-title: "CTSBS Missing Data Pattern"
+title: "CTSBS Missing Data"
 author: "Roxanne Beauclair"
 date: '`r format(Sys.Date(), "%d %B %Y")`'
 output: html_document
@@ -27,7 +27,8 @@ source(fxn)
 # tidyverse: for data management functions
 
 
-InstallLoad("magrittr", "tidyverse", "mice")
+InstallLoad("magrittr", "tidyverse", "mice", "knitr",
+            "forcats", "htmlTable")
 
 # =============
 # Load datasets
@@ -36,7 +37,7 @@ load(excludedata)
 
 ```
 
-```{r mdpattern, echo = FALSE, warning = FALSE}
+```{r mdpattern, include = FALSE, warning = FALSE}
 
 # For relationship-level characteristics
 rels <- df %>%
@@ -58,5 +59,256 @@ mdpparts <- md.pattern(parts)
 mdpparts[order(dimnames(mdpparts)[[1]]),]
 
 
+```
+
+```{r missingness_setup, include = FALSE}
+
+df1 <- df %>%
+  select(id, age, sex, race, hiv,
+         job, grade, easy, relcount,
+         agep, relsf, relcf, relconcur,
+         pt, ongoing) %>%
+  mutate(agecat = fct_explicit_na(cut(age,
+                                      breaks = c(14, 24, 34, 44, 71),
+                                      labels = c("15-24", "25-34", "35-44", "45-70")),
+                                  na_level = "Missing"),
+         sex = fct_explicit_na(sex, na_level = "Missing"),
+         race = fct_explicit_na(race, na_level = "Missing"),
+         hivstat = fct_explicit_na(hiv, na_level = "Missing"),
+         agepcat = fct_explicit_na(cut(agep,
+                                       breaks = c(10, 24, 34, 44, 96),
+                                       labels = c("11-24", "25-34", "35-44", "45-95")),
+                                   na_level = "Missing"),
+         relsfcat = fct_explicit_na(cut(relsf,
+                                        breaks = c(-1, 0, 1, 2, 3, 4, 17),
+                                        labels = c("None", "1 per week", 
+                                                   "2 per week", "3 per week", 
+                                                   "4 per week", ">= 5 per week")),
+                                    na_level = "Missing"),
+         cf = fct_explicit_na(fct_collapse(relcf,
+                                           "Never/inconsistent" = c("Never", "Inconsistent")),
+                              na_level = "Missing"),
+         mcp = fct_explicit_na(relconcur, na_level = "Missing"),
+         pt = fct_collapse(pt,
+                           "Main" = c("MP", "OMP"),
+                           "Casual" = "CP"),
+         missagep = factor(ifelse(is.na(agep), "Missing", "Observed")),
+         misshiv = factor(ifelse(is.na(hiv), "Missing", "Observed")),
+         missrelcf = factor(ifelse(is.na(relcf), "Missing", "Observed")),
+         missrelconcur = factor(ifelse(is.na(relconcur), "Missing", "Observed")),
+         missrelsf = factor(ifelse(is.na(relsf), "Missing", "Observed")))
+
+df2 <- df1 %>%
+  distinct(id, .keep_all = TRUE)
+
+agedf <- df2 %>%
+  group_by(agecat) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2)) %>%
+  data.frame(row.names = 1)
+
+sexdf <- df2 %>%
+  group_by(sex) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2)) %>%
+  data.frame(row.names = 1)
+
+racedf <- df2 %>%
+  group_by(race) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2)) %>%
+  data.frame(row.names = 1)
+
+hivdf <- df2 %>%
+  group_by(hivstat) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2))  %>%
+  data.frame(row.names = 1)
+  
+df3 <- rbind(agedf, sexdf, racedf, hivdf)
+
+agepdf <- df1 %>%
+  group_by(agepcat) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2)) %>%
+  data.frame(row.names = 1)
+
+sfdf <- df1 %>%
+  group_by(relsfcat) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2)) %>%
+  data.frame(row.names = 1)
+
+cfdf <- df1 %>%
+  group_by(cf) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2)) %>%
+  data.frame(row.names = 1)
+
+mcpdf <- df1 %>%
+  group_by(mcp) %>%
+  summarise(n = n()) %>%
+  mutate(prop = round((n / sum(n)) * 100, 2)) %>%
+  data.frame(row.names = 1)
+
+df4 <- rbind(agepdf, sfdf, cfdf, mcpdf)
+
+```
+
+```{r missingness_by_var_setup, include = FALSE}
+tab3 <- list()
+
+tab3[["Age"]] <- GetT1Stat(df1$age, df1$missagep)
+tab3[["Sex"]] <- GetT1Stat(df1$sex, df1$missagep)
+tab3[["Race"]] <- GetT1Stat(df1$race, df1$missagep)
+tab3[["HIV status"]] <- GetT1Stat(df1$hiv, df1$missagep)
+tab3[["Employed"]] <- GetT1Stat(df1$job, df1$missagep)
+tab3[["Highest grade completed"]] <- GetT1Stat(df1$grade, df1$missagep)
+tab3[["ACASI survey difficulty"]] <- GetT1Stat(df1$easy, df1$missagep)
+tab3[["No relationships in past year"]] <- GetT1Stat(df1$relcount, df1$missagep)
+tab3[["Partner type"]] <- GetT1Stat(df1$pt, df1$missagep)
+
+tab4 <- list()
+
+tab4[["Age"]] <- GetT1Stat(df2$age, df2$misshiv)
+tab4[["Sex"]] <- GetT1Stat(df2$sex, df2$misshiv)
+tab4[["Race"]] <- GetT1Stat(df2$race, df2$misshiv)
+tab4[["Employed"]] <- GetT1Stat(df2$job, df2$misshiv)
+tab4[["Highest grade completed"]] <- GetT1Stat(df2$grade, df2$misshiv)
+tab4[["ACASI survey difficulty"]] <- GetT1Stat(df2$easy, df2$misshiv)
+tab4[["No relationships in past year"]] <- GetT1Stat(df2$relcount, df2$misshiv)
+
+tab5 <- list()
+
+tab5[["Age"]] <- GetT1Stat(df1$age, df1$missrelcf)
+tab5[["Sex"]] <- GetT1Stat(df1$sex, df1$missrelcf)
+tab5[["Race"]] <- GetT1Stat(df1$race, df1$missrelcf)
+tab5[["HIV status"]] <- GetT1Stat(df1$hiv, df1$missrelcf)
+tab5[["Employed"]] <- GetT1Stat(df1$job, df1$missrelcf)
+tab5[["Highest grade completed"]] <- GetT1Stat(df1$grade, df1$missrelcf)
+tab5[["ACASI survey difficulty"]] <- GetT1Stat(df1$easy, df1$missrelcf)
+tab5[["No relationships in past year"]] <- GetT1Stat(df1$relcount, df1$missrelcf)
+tab5[["Partner type"]] <- GetT1Stat(df1$pt, df1$missrelcf)
+
+tab6 <- list()
+
+tab6[["Age"]] <- GetT1Stat(df1$age, df1$missrelsf)
+tab6[["Sex"]] <- GetT1Stat(df1$sex, df1$missrelsf)
+tab6[["Race"]] <- GetT1Stat(df1$race, df1$missrelsf)
+tab6[["HIV status"]] <- GetT1Stat(df1$hiv, df1$missrelsf)
+tab6[["Employed"]] <- GetT1Stat(df1$job, df1$missrelsf)
+tab6[["Highest grade completed"]] <- GetT1Stat(df1$grade, df1$missrelsf)
+tab6[["ACASI survey difficulty"]] <- GetT1Stat(df1$easy, df1$missrelsf)
+tab6[["No relationships in past year"]] <- GetT1Stat(df1$relcount, df1$missrelsf)
+tab6[["Partner type"]] <- GetT1Stat(df1$pt, df1$missrelsf)
+
+tab7 <- list()
+
+tab7[["Age"]] <- GetT1Stat(df1$age, df1$missrelconcur)
+tab7[["Sex"]] <- GetT1Stat(df1$sex, df1$missrelconcur)
+tab7[["Race"]] <- GetT1Stat(df1$race, df1$missrelconcur)
+tab7[["HIV status"]] <- GetT1Stat(df1$hiv, df1$missrelconcur)
+tab7[["Employed"]] <- GetT1Stat(df1$job, df1$missrelconcur)
+tab7[["Highest grade completed"]] <- GetT1Stat(df1$grade, df1$missrelconcur)
+tab7[["ACASI survey difficulty"]] <- GetT1Stat(df1$easy, df1$missrelconcur)
+tab7[["Number relationships in past year"]] <- GetT1Stat(df1$relcount, df1$missrelconcur)
+tab7[["Partner type"]] <- GetT1Stat(df1$pt, df1$missrelconcur)
+
+```
+
+
+
+```{r part_var_missing_table, echo = FALSE}
+
+htmlTable(df3,
+          caption = "<b>Table 1. Frequency distribution of key participant-level variables<b/>",
+          rgroup = c("Age", "Sex", "Race", "HIV status"),
+          n.rgroup = c(5, 3, 3, 3))
+```
+
+<br>
+<br>
+
+```{r rel_var_missing_table, echo = FALSE}
+htmlTable(df4,
+          caption = "<b>Table 2. Frequency distribution of key relationship-level variables<b/>",
+          rgroup = c("Age of partner", "Sex frequency per week", "Condom use", "Concurrent"),
+          n.rgroup = c(5, 7, 3, 3))
+```
+
+<br>
+<br>
+
+```{r miss_agep, echo = FALSE}
+mergeDesc(tab3) %>%
+  htmlTable(caption = "<b>Table 3. Comparison of participant characteristics for relationships with missing partner ages versus non-missing ages<b/>",
+            tfoot = "All continuous values are reported with median and inter-quartile range, Med (IQR), while categories are reported in percentages, n (%).",
+            rowlabel = "Variables",
+            cgroup = "Partner age",
+            n.cgroup = ncol(tab3[[1]]),
+            ctable = TRUE,
+            padding.rgroup = "&nbsp; &nbsp; &nbsp;")
+
+
+```
+
+<br>
+<br>
+
+```{r miss_hiv, echo = FALSE}
+mergeDesc(tab4) %>%
+  htmlTable(caption = "<b>Table 4. Comparison of participant characteristics for those with missing HIV status versus non-missing statuses<b/>",
+            tfoot = "All continuous values are reported with median and inter-quartile range, Med (IQR), while categories are reported in percentages, n (%).",
+            rowlabel = "Variables",
+            cgroup = "HIV status",
+            n.cgroup = ncol(tab4[[1]]),
+            ctable = TRUE,
+            padding.rgroup = "&nbsp; &nbsp; &nbsp;")
+```
+
+<br>
+<br>
+
+```{r miss_cf, echo = FALSE}
+
+mergeDesc(tab5) %>%
+  htmlTable(caption = "<b>Table 5. Comparison of participant characteristics for relationships with missing condom use frequency versus those with condom use frequency<b/>",
+            tfoot = "All continuous values are reported with median and inter-quartile range, Med (IQR), while categories are reported in percentages, n (%).",
+            rowlabel = "Variables",
+            cgroup = "Condom Use",
+            n.cgroup = ncol(tab5[[1]]),
+            ctable = TRUE,
+            padding.rgroup = "&nbsp; &nbsp; &nbsp;")
+
+```
+
+<br>
+<br>
+
+```{r miss_sf, echo = FALSE}
+mergeDesc(tab6) %>%
+  htmlTable(caption = "<b>Table 6. Comparison of participant characteristics for relationships with missing sex frequency versus those with sex frequency<b/>",
+            tfoot = "All continuous values are reported with median and inter-quartile range, Med (IQR), while categories are reported in percentages, n (%).",
+            rowlabel = "Variables",
+            cgroup = "Condom Use",
+            n.cgroup = ncol(tab6[[1]]),
+            ctable = TRUE,
+            padding.rgroup = "&nbsp; &nbsp; &nbsp;")
+
+```
+
+<br>
+<br>
+
+```{r miss_relconcur, echo = FALSE}
+
+mergeDesc(tab7) %>%
+  htmlTable(caption = "<b>Table y. Comparison of participant characteristics for relationships with missing concurrency status versus those with a concurrency status<b/>",
+            tfoot = "All continuous values are reported with median and inter-quartile range, Med (IQR), while categories are reported in percentages, n (%).",
+            rowlabel = "Variables",
+            cgroup = "Concurrency",
+            n.cgroup = ncol(tab7[[1]]),
+            ctable = TRUE,
+            padding.rgroup = "&nbsp; &nbsp; &nbsp;")
 ```
 

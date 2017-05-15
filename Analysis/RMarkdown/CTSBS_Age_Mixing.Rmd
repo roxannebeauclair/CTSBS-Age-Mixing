@@ -1,6 +1,6 @@
 ---
 title: "CTSBS Age-Mixing"
-author: "Roxanne beauclair"
+author: "Roxanne Beauclair"
 date: '`r format(Sys.Date(), "%d %b %Y")`'
 output: html_document
 ---
@@ -135,7 +135,7 @@ Before conducting imputations, I excluded participants who said their sexual pre
 ```{r amp_setup, include = FALSE}
 
 # What is the age mixing pattern?
-set.seed(47621)
+set.seed(4762)
 n <- sample(1:imp, 1)
 
 # Smaller datasets
@@ -146,21 +146,23 @@ dfamp <- dfimp %>%
 
 # Everyone
 dfampm <- dfamp %>%
-  filter(sex == "Male")
+  filter(sex == "Male" & hiv == "Negative")
 
 dfampw <- dfamp %>%
-  filter(sex == "Female")
+  filter(sex == "Female" & hiv == "Negative")
 
 
 # Now fit separate models for men and women
 ampmodm <- lme(agep ~ age0, 
            data = dfampm, 
-           random = ~1 | id,  
+           random = ~1 | id,
+           weights = varPower(value = 0.5, form = ~age0 + 1),
            method = "REML")
 
 ampmodw <- lme(agep ~ age0, 
            data = dfampw, 
            random = ~1 | id,
+           weights = varPower(value = 0.5, form = ~age0 + 1),
            method = "REML")
 
 # Add the predicted values and residuals to the dataset
@@ -174,7 +176,7 @@ dfampw <- dfampw %>%
 
 #Combine both datasets again
 comb <- bind_rows(dfampm, dfampw) %>%
-  mutate(population = "General population")
+  mutate(population = "Negative")
 
 # For only those with HIV
 
@@ -193,12 +195,14 @@ dfamphivw <- dfamphiv %>%
 # Now fit separate models for men and women
 amphivmodm <- lme(agep ~ age0, 
            data = dfamphivm, 
-           random = ~1 | id,  
+           random = ~1 | id,
+           weights = varPower(value = 0.5, form = ~age0 + 1),
            method = "REML")
 
 amphivmodw <- lme(agep ~ age0, 
            data = dfamphivw, 
            random = ~1 | id,
+           weights = varPower(value = 0.5, form = ~age0 + 1),
            method = "REML")
 
 
@@ -213,9 +217,9 @@ dfamphivw <- dfamphivw %>%
 
 #Combine both male and female HIV datasets again
 comb2 <- bind_rows(dfamphivm, dfamphivw) %>%
-  mutate(population = "HIV")
+  mutate(population = "Positive")
 
-# Now add the HIV dataset to the general population dataset
+# Now add the HIV dataset to the negative dataset
 comb_all <- bind_rows(comb, comb2)
   
 ```
@@ -291,16 +295,9 @@ ampresfig2
 # versus HIV population. So with 2 genders, 50 imps, and 2 pop status,
 # there will be 200 groups/dataframes
 
-hivamp <- dfimp %>%
-  filter(.imp != 0 &
-           hiv == "Positive") %>%
-  mutate(population = "HIV")
-  
-impsexpopamp <- dfimp %>% 
-  filter(.imp != 0) %>%
-  mutate(population = "General population") %>%
-  bind_rows(hivamp) %>%
-  group_by(.imp, sex, population) %>%
+impsexpopamp <- dfimp %>%
+  filter(.imp != 0)%>%
+  group_by(.imp, sex, hiv) %>%
   nest()
 
 # Produce nice summary of the models
@@ -343,7 +340,7 @@ slopeplot <- modslopeint %>%
   geom_point() +
   geom_pointrange(aes(ymax = estimate + 2 * std.error,
                       ymin = estimate - 2 * std.error)) +
-  facet_grid(population ~ sex) +
+  facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
   ylab("Slope of regression line") +
@@ -361,7 +358,7 @@ interplot <- modslopeint %>%
   geom_point() +
   geom_pointrange(aes(ymax = estimate + 2 * std.error,
                       ymin = estimate - 2 * std.error)) +
-  facet_grid(population ~ sex) +
+  facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
   ylab("Partner age for 15 year olds") +
@@ -378,7 +375,7 @@ wvarplot <- modwvar %>%
   geom_point() +
   geom_pointrange(aes(ymax = uprwsd,
                       ymin = lwrwsd)) +
-  facet_grid(population ~ sex) +
+  facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
   ylab("Within-Subject SD") +
@@ -395,7 +392,7 @@ bvarplot <- modbvar %>%
   geom_point() +
   geom_pointrange(aes(ymax = uprbsd,
                       ymin = lwrbsd)) +
-  facet_grid(population ~ sex) +
+  facet_grid(hiv ~ sex) +
   coord_flip() +
   scale_y_continuous(limits = c(0, 20)) +
   xlab("Imputation") +

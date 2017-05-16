@@ -332,6 +332,13 @@ ampmodel <- function(df) {
       method = "REML")
 }
 
+ampmodel2 <- function(df) {
+  
+  lmer(agep ~ age0 + (1 | id),
+       data = df,
+       REML = TRUE)
+}
+
 # Extracts the between subject SD from agemixing pattern model
 # Also upper and lower CI limits
 
@@ -364,6 +371,34 @@ bvar <- function(model) {
   data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
 }
 
+bvar2 <- function(model) {
+  
+  # Must take an merMod  object
+  # Outputs a dataframe 
+  
+  bsd <- as.data.frame(VarCorr(model))[1, 5] %>%
+    round(2)
+  
+  # The tryCatch function is used so that the function will keep going even 
+  # if there is an error for one of the models. If there is an error, it
+  # will just make the value missing
+  lwrbsd <- tryCatch({
+    confint(model)[1, 1] %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
+  
+  uprbsd <- tryCatch({
+    confint(model)[1, 2] %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
+  
+  data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
+}
+
 # Extracts the within subject SD from agemixing pattern model
 # Also upper and lower CI limits
 
@@ -388,6 +423,34 @@ wvar <- function(model) {
   
   uprwsd <- tryCatch({
     (intervals(model)$sigma[3])  %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
+  
+  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
+}
+
+wvar2 <- function(model) {
+  
+  # Must take an nlme model object
+  # Outputs a dataframe
+  
+  wsd <- as.data.frame(VarCorr(model))[2, 5] %>%
+    round(2)
+  
+  # The tryCatch function is used so that the function will keep going even 
+  # if there is an error for one of the models. If there is an error, it
+  # will just make the value missing
+  lwrwsd <- tryCatch({
+    confint(model)[2, 1] %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
+  
+  uprwsd <- tryCatch({
+    confint(model)[2, 2] %>%
       round(2)
   }, error = function(e) {
     print(paste("My error: ", e)); NA

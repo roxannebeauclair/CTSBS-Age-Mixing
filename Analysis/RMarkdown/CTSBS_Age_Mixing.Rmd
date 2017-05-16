@@ -31,7 +31,7 @@ source(fxn)
 InstallLoad("magrittr", "MASS", "tidyverse", 
             "mice","nlme", "lme4", "modelr",
             "mgcv", "gamm4", "broom", "splines", 
-            "mediation", "forcats")
+            "mediation", "forcats", "Gmisc", "htmlTable")
 
 # =============
 # Load datasets
@@ -304,24 +304,41 @@ tidysumamp <- impsexhivamp %>%
          modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the b's and intercepts from the models
          bvar = map(model, bvar), # Obtaining between subject variance using function bvar
          wvar = map(model, wvar), # Obtaining within subject variance using function wvar
-         power = map(model, power)) # Obtaining power coefficient using function power
+         power = map(model, power), # Obtaining power coefficient using function power
+         model2 = map(data, ampmodel2),
+         modelsum2 = map(model2, ~tidy(.x, effects = "fixed")),
+         bvar2 = map(model2, bvar2),
+         wvar2 = map(model2, wvar2))
 
-# Unnest tidy summary for data on slope and intercept
+# Unnest tidy summary for (lme) data on slope and intercept
 # of all the models
 modslopeint <- tidysumamp %>%
   unnest(modelsum, .drop = TRUE)
 
-# Unnest tidy summary for data on within individual variance
+# Unnest tidy summary for (lme) data on within individual variance
 modwvar <- tidysumamp %>%
   unnest(wvar, .drop = TRUE)
 
-# Uneest tidy summary for data on between individual variance
+# Uneest tidy summary for (lme) data on between individual variance
 modbvar <- tidysumamp %>%
   unnest(bvar, .drop = TRUE)
 
-# Unnest tidy summary for data on power coefficient
+# Unnest tidy summary for (lme) data on power coefficient
 modpower <- tidysumamp %>%
   unnest(power, .drop = TRUE)
+
+# Unnest tidy summary for (lmer) data on slope and intercept
+# of all the models
+modslopeint2 <- tidysumamp %>%
+  unnest(modelsum2, .drop = TRUE)
+
+# Unnest tidy summary for (lmer) data on within individual variance
+modwvar2 <- tidysumamp %>%
+  unnest(wvar2, .drop = TRUE)
+
+# Uneest tidy summary for (lmer) data on between individual variance
+modbvar2 <- tidysumamp %>%
+  unnest(bvar2, .drop = TRUE)
 
 ```
 
@@ -350,6 +367,26 @@ slopeplot <- modslopeint %>%
 slopeplot
 ```
 
+```{r amp_model_slope_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
+
+# Plot all of the beta's for age mixing pattern in 
+# each of the 100 datasets (by imputation and gender)
+slopeplot2 <- modslopeint2 %>%
+  filter(term == "age0") %>%
+  ggplot(aes(x = .imp, y = estimate)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = estimate + 2 * std.error,
+                      ymin = estimate - 2 * std.error)) +
+  facet_grid(hiv ~ sex) +
+  coord_flip() +
+  xlab("Imputation") +
+  ylab("Slope of regression line") +
+  theme
+
+slopeplot2
+```
+
+
 ```{r amp_model_intercept_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot all of the intercepts for age mixing pattern in 
 # each of the 100 datasets (by imputation and gender)
@@ -366,6 +403,24 @@ interplot <- modslopeint %>%
   theme
 
 interplot
+```
+
+```{r amp_model_intercept_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
+# Plot all of the intercepts for age mixing pattern in 
+# each of the 100 datasets (by imputation and gender)
+interplot2 <- modslopeint2 %>%
+  filter(term == "(Intercept)") %>%
+  ggplot(aes(.imp, estimate)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = estimate + 2 * std.error,
+                      ymin = estimate - 2 * std.error)) +
+  facet_grid(hiv ~ sex) +
+  coord_flip() +
+  xlab("Imputation") +
+  ylab("Partner age for 15 year olds") +
+  theme
+
+interplot2
 ```
 
 ```{r amp_model_wvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
@@ -385,6 +440,23 @@ wvarplot <- modwvar %>%
 wvarplot
 ```
 
+```{r amp_model_wvar_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
+# Plot each of the residual variances for age mixing pattern
+# in each of the 100 datasets (by imputation and gender)
+wvarplot2 <- modwvar2 %>%
+  ggplot(aes(.imp, wsd)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = uprwsd,
+                      ymin = lwrwsd)) +
+  facet_grid(hiv ~ sex) +
+  coord_flip() +
+  xlab("Imputation") +
+  ylab("Within-Subject SD") +
+  theme
+
+wvarplot2
+```
+
 ```{r amp_model_bvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the between subject variances for age mixing pattern
 # in each of the 100 datasets (by imputation and gender)
@@ -402,6 +474,26 @@ bvarplot <- modbvar %>%
 
 bvarplot
 ```
+
+```{r amp_model_bvar_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
+# Plot each of the between subject variances for age mixing pattern
+# in each of the 100 datasets (by imputation and gender)
+bvarplot2 <- modbvar2 %>%
+  ggplot(aes(.imp, bsd)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = uprbsd,
+                      ymin = lwrbsd)) +
+  facet_grid(hiv ~ sex) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 20)) +
+  xlab("Imputation") +
+  ylab("between-Subject SD") +
+  theme
+
+bvarplot2
+```
+
+<br>
 
 For some of the models on the some datasets (e.g. impution 9 in the HIV positive female sub-population), I recieved this error message when trying to obtain the CIs for the between-subject (intercept) SD: "cannot get confidence intervals on var-cov components: Non-positive definite approximate variance-covariance". According to Jose Pinheiro, this "indicates that, although the optimization algorithm converged (according to the criteria defined in the ms() function), the Hessian matrix calculated at the converged values was not negative-definite
 and therefore an approximate covariance matrix for the MLE's could not be obtained. This is generally caused by a flat log-likelihood surface, for which the algorithm decided that no further improvements were possible and declared convergence. This is an indication that the model may be overparameterized and that you should cut down in the
@@ -454,6 +546,53 @@ hivageplot <- hivbyage %>%
 
 hivageplot
   
+```
+
+<br>
+
+### **DO BRIDGEWIDTHS AND SD'S GROW WITH AGE?**
+
+```{r bw_age_sd_setup, include = FALSE}
+bwdfm <- partdfimp %>%
+  filter(.imp == n) %>%
+  filter(sex == "Male") %>%
+  select(agegroup, bridgewidth) %>%
+  group_by(agegroup) %>%
+  summarise(n = n(),
+            Mean = round(mean(bridgewidth), 2),
+            sd = round(sd(bridgewidth), 2),
+            SEM = round((sd/sqrt(n)), 2)) %>%
+  rename(SD = sd) %>%
+  data.frame(row.names = 1) %>%
+  format(nsmall = 1)
+  
+
+bwdfw <- partdfimp %>%
+  filter(.imp == n) %>%
+  filter(sex == "Female") %>%
+  select(agegroup, bridgewidth) %>%
+  group_by(agegroup) %>%
+  summarise(n = n(),
+            Mean = round(mean(bridgewidth), 2),
+            sd = round(sd(bridgewidth), 2),
+            SEM = round((sd/sqrt(n)), 2)) %>%
+  rename(SD = sd) %>%
+  data.frame(row.names = 1) %>%
+  format(nsmall = 1)
+  
+```
+
+```{r bw_age_sd_table, echo = FALSE}
+
+htmlTable(cbind(bwdfm, bwdfw),
+          caption = "<b>Table 1. Mean bridgewidth by age category and gender in randomly selected imputed dataset<b/>",
+          ctable = TRUE,
+          tfoot = txtMergeLines("SD, Standard Deviation",
+                                "SEM, Standard Error of the Mean"),
+          cgroup = c("Male", "Female"),
+          n.cgroup = c(4,4),
+          rowlabel = "Age category")
+
 ```
 
 

@@ -144,7 +144,7 @@ dfamp <- dfimp %>%
   select(id, age, age0, agep, sex,
          missage, missagep, hiv) 
 
-# Everyone
+# HIV negative
 dfampm <- dfamp %>%
   filter(sex == "Male" & hiv == "Negative")
 
@@ -175,8 +175,7 @@ dfampw <- dfampw %>%
   add_residuals(ampmodw, var = "resid") 
 
 #Combine both datasets again
-comb <- bind_rows(dfampm, dfampw) %>%
-  mutate(population = "Negative")
+comb <- bind_rows(dfampm, dfampw)
 
 # For only those with HIV
 
@@ -216,8 +215,7 @@ dfamphivw <- dfamphivw %>%
   add_residuals(amphivmodw, var = "resid")
 
 #Combine both male and female HIV datasets again
-comb2 <- bind_rows(dfamphivm, dfamphivw) %>%
-  mutate(population = "Positive")
+comb2 <- bind_rows(dfamphivm, dfamphivw) 
 
 # Now add the HIV dataset to the negative dataset
 comb_all <- bind_rows(comb, comb2)
@@ -234,7 +232,7 @@ Here I used linear mixed effects models that were stratified by sex and containe
 
 <br>
 
-###### **Figure 1. Age mixing pattern for randomly selected imputed dataset. The top row represents the male and female age mixing patterns in the whole study population, while the bottom row is for only those with HIV**
+###### **Figure 1. Age mixing pattern for randomly selected imputed dataset. The top row represents the male and female age mixing patterns HIV negative study population, while the bottom row is for only those with HIV**
 
 <br>
 
@@ -252,7 +250,7 @@ ampfig <- comb_all %>%
               show.legend = FALSE) +
   geom_line(aes(linetype = "Population mean"), 
             size = 1) +
-  facet_grid(population ~ sex) + 
+  facet_grid(hiv ~ sex) + 
   scale_y_continuous(name = "Partner's ages") +
   scale_color_manual('Imputation Status', values = c('grey70', 'grey42')) +
   scale_linetype_manual('Lines', values = c("Population mean" = 1, 'Same age' = 2)) +
@@ -270,7 +268,7 @@ ampfig
 ampresfig1 <- comb_all %>%
   ggplot(aes(resid)) +
   geom_freqpoly(binwidth = 0.5) +
-  facet_grid(population ~ sex) +
+  facet_grid(hiv ~ sex) +
   theme
 
 ampresfig1
@@ -281,7 +279,7 @@ ampresfig2 <- comb_all %>%
   geom_point() +
   geom_smooth(method = "loess") +
   geom_ref_line(h = 0) +
-  facet_grid(population ~ sex) + 
+  facet_grid(hiv ~ sex) + 
   theme
 
 ampresfig2
@@ -291,23 +289,22 @@ ampresfig2
 ```{r amp_all_setup, include = FALSE, warning = FALSE}
 
 # Create a dataset that nests all of the datasets according to
-# gender, imputation, and whether they are in the general population
-# versus HIV population. So with 2 genders, 50 imps, and 2 pop status,
+# gender, imputation, and hiv status. So with 2 genders, 50 imps, and 2 hiv status,
 # there will be 200 groups/dataframes
 
-impsexpopamp <- dfimp %>%
+impsexhivamp <- dfimp %>%
   filter(.imp != 0)%>%
   group_by(.imp, sex, hiv) %>%
   nest()
 
 # Produce nice summary of the models
-# A model will be applied to all imputations, sex, and population subgroups
-tidysumamp <- impsexpopamp %>%
-  # filter(population == "General population") %>%
+# A model will be applied to all imputations, sex, and hiv subgroups
+tidysumamp <- impsexhivamp %>%
   mutate(model = map(data, ampmodel), #ampmodel is function for nlme amp model
          modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the b's and intercepts from the models
          bvar = map(model, bvar), # Obtaining between subject variance using function bvar
-         wvar = map(model, wvar)) # Obtaining within subject variance using function wvar
+         wvar = map(model, wvar), # Obtaining within subject variance using function wvar
+         power = map(model, power)) # Obtaining power coefficient using function power
 
 # Unnest tidy summary for data on slope and intercept
 # of all the models
@@ -321,6 +318,10 @@ modwvar <- tidysumamp %>%
 # Uneest tidy summary for data on between individual variance
 modbvar <- tidysumamp %>%
   unnest(bvar, .drop = TRUE)
+
+# Unnest tidy summary for data on power coefficient
+modpower <- tidysumamp %>%
+  unnest(power, .drop = TRUE)
 
 ```
 
@@ -402,12 +403,38 @@ bvarplot <- modbvar %>%
 bvarplot
 ```
 
+For some of the models on the some datasets (e.g. impution 9 in the HIV positive female sub-population), I recieved this error message when trying to obtain the CIs for the between-subject (intercept) SD: "cannot get confidence intervals on var-cov components: Non-positive definite approximate variance-covariance". According to Jose Pinheiro, this "indicates that, although the optimization algorithm converged (according to the criteria defined in the ms() function), the Hessian matrix calculated at the converged values was not negative-definite
+and therefore an approximate covariance matrix for the MLE's could not be obtained. This is generally caused by a flat log-likelihood surface, for which the algorithm decided that no further improvements were possible and declared convergence. This is an indication that the model may be overparameterized and that you should cut down in the
+number of parameters." 
+
+
+```{r amp_model_power_plot, echo = FALSE, warning = FALSE, fig.height = 8}
+
+# The formula to calculate the weights for variance is |v|^(2*t)
+# I belive t is the power coefficient
+
+powplot <- modpower %>%
+  ggplot(aes(.imp, power)) +
+  geom_point() +
+  geom_pointrange(aes(ymax = uprpow,
+                      ymin = lwrpow)) +
+  facet_grid(hiv ~ sex) +
+  coord_flip() +
+  #scale_y_continuous(limits = c(0, 20)) +
+  xlab("Imputation") +
+  ylab("Power variance function coefficient") +
+  theme
+
+powplot
+```
+
+In the power variance function coefficient plot, there were 20 imputations removed because "Non-positive definite approximate variance-covariance".
 
 ```{r age_hiv_fig, include = FALSE, warning = FALSE, fig.height = 8}
 # Create dataframe that summarizes the proportion of relationships
 # in different partner age groups for people who are HIV
 # positive
-hivbyage <- impsexpopamp %>%
+hivbyage <- impsexhivamp %>%
   unnest() %>%
   ungroup() %>%
   filter(.imp == n & hiv == "Positive") %>%
@@ -428,6 +455,7 @@ hivageplot <- hivbyage %>%
 hivageplot
   
 ```
+
 
 <br>
 

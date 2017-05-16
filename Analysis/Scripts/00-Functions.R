@@ -396,6 +396,40 @@ wvar <- function(model) {
   data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
 }
 
+# Extract the power coefficient
+
+power <- function(model) {
+  
+  # Takes model object and outputs tidy dataframe
+  
+  # Power coefficient
+  p <- tryCatch({
+    (attributes(model$apVar)$Pars["varStruct.power"])  %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
+  
+  # Lower interval
+  lwrpsd <- tryCatch({
+    (intervals(model)$varStruct[, 1]) %>%
+       round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
+  
+  # Upper interval
+  uprpsd <- tryCatch({
+    (intervals(model)$varStruct[, 3]) %>%
+      round(2)
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
+  
+  data.frame(power = p, lwrpow = lwrpsd, uprpow = uprpsd)
+  
+}
+
 # Creating a  negative binomial model for hiv status as outcome
 # Calculates RR
 # Adjusts for race, age 

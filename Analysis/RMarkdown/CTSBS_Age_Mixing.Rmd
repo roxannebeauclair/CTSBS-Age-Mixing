@@ -126,9 +126,8 @@ rm(df, df1, df2, df3, df4, df5)
 
 **Research questions:** 
 
-1. Describe the age-mixing pattern in the CTSBS population. Does the age-mixing pattern of HIV positive participants differ from the general population?
+1. Describe the age-mixing pattern in the CTSBS population. Does the age-mixing pattern of HIV positive participants differ from HIV negative participants?
 2. At the individual-level are large ranges in partner ages (bridgewidths) associated with HIV status of a participant?
-3. Large bridgewidths may make it possible for participants to acquire HIV from one age group and transmit to the next, but are they also associated with risky sexual behaviours among participants?
 
 Before conducting imputations, I excluded participants who said their sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Participants who had missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left` participants. Of the `r parts_left` participants, `r parts_many_partner` reported more than one relationship in the previous year. I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "polr" method for our ordinal variables. 
 
@@ -228,7 +227,7 @@ comb_all <- bind_rows(comb, comb2)
 
 <br>
 
-Here I used linear mixed effects models that were stratified by sex and contained a random intercept for the participant. For the plots, I randomly selected an imputed dataset to visualize the pattern in that population. I did not explicitly model heteroskedastic variance, like we did with the LNS data, because plots of the residuals did not seem to indicate increasing variance with age.
+Here I used linear mixed effects models that were stratified by sex and contained a random intercept for the participant. For the plots, I randomly selected an imputed dataset to visualize the pattern in that population. Heteroskedastic variance is now taken into account in the models that produced these predictions.
 
 <br>
 
@@ -309,36 +308,352 @@ tidysumamp <- impsexhivamp %>%
          modelsum2 = map(model2, ~tidy(.x, effects = "fixed")),
          bvar2 = map(model2, bvar2),
          wvar2 = map(model2, wvar2))
+```
 
+```{r slope_int_setup, include = FALSE, warning = FALSE}
 # Unnest tidy summary for (lme) data on slope and intercept
 # of all the models
 modslopeint <- tidysumamp %>%
   unnest(modelsum, .drop = TRUE)
 
-# Unnest tidy summary for (lme) data on within individual variance
-modwvar <- tidysumamp %>%
-  unnest(wvar, .drop = TRUE)
+# Calculate difference between estimate, 
+# then fraction of differences
+slopeintdif <- modslopeint %>%
+  select(-std.error, -statistic, -p.value) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, estimate) 
 
-# Uneest tidy summary for (lme) data on between individual variance
-modbvar <- tidysumamp %>%
-  unnest(bvar, .drop = TRUE)
+# Fraction of imputed dfs where differenes between 
+# slopes are <= 0. 
+gendifslopesum <- slopeintdif %>%
+  filter(term == "age0") %>%
+  mutate(gendifneg = Female_Negative - Male_Negative, # Ha: Female slopes larger than males
+         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
+  group_by(gendifnegind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
 
-# Unnest tidy summary for (lme) data on power coefficient
-modpower <- tidysumamp %>%
-  unnest(power, .drop = TRUE)
+# All slopes are different between genders among HIV negative people
+gendifslopeprop <- 0.00
+
+# Fraction of imputed dfs where differenes between 
+# intercepts are <= 0. 
+gendifintsum <- slopeintdif %>%
+  filter(term == "(Intercept)") %>%
+  mutate(gendifneg = Female_Negative - Male_Negative, # Ha: Female intercepts larger than males
+         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
+  group_by(gendifnegind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# All intercepts are different between genders among HIV negative people
+gendifintprop <- 0.00
+
+hivdifmslopesum <- slopeintdif %>%
+  filter(term == "age0") %>%
+  mutate(hivdifm = Male_Negative - Male_Positive, # Ha: HIV negative males larger than HIV pos males
+         hivdifmind = as.factor(ifelse(hivdifm <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifmind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of slopes which are <= 0 between Hiv neg and pos men
+hivdifmslopeprop <- hivdifmslopesum$prop[2]
+
+hivdifmintsum <- slopeintdif %>%
+  filter(term == "(Intercept)") %>%
+  mutate(hivdifm = Male_Positive - Male_Negative, # Ha: HIV pos males larger than HIV neg males
+         hivdifmind = as.factor(ifelse(hivdifm <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifmind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of intercept differences <=0
+hivdifmintprop <- 0.00
+
+hivdifwslopesum <- slopeintdif %>%
+  filter(term == "age0") %>%
+  mutate(hivdifw = Female_Negative - Female_Positive, # Ha: HIV negative males larger than HIV pos males
+         hivdifwind = as.factor(ifelse(hivdifw <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifwind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of slopes which are <= 0 between Hiv neg and pos women
+hivdifwslopeprop <- 0.00
+
+hivdifwintsum <- slopeintdif %>%
+  filter(term == "(Intercept)") %>%
+  mutate(hivdifw = Female_Positive - Female_Negative, # Ha: HIV pos females larger than HIV neg females
+         hivdifwind = as.factor(ifelse(hivdifw <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifwind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of intercept differences <=0
+hivdifwintprop <- 0.00
+
+# ===========================
+# LMER models
+# ===========================
 
 # Unnest tidy summary for (lmer) data on slope and intercept
 # of all the models
 modslopeint2 <- tidysumamp %>%
   unnest(modelsum2, .drop = TRUE)
 
+slopeintdif2 <- modslopeint2 %>%
+  select(-std.error, -statistic) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, estimate) 
+
+# Fraction of imputed dfs where differenes between 
+# slopes are <= 0. 
+gendifslopesum2 <- slopeintdif2 %>%
+  filter(term == "age0") %>%
+  mutate(gendifneg = Female_Negative - Male_Negative, # Ha: Female slopes larger than males
+         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
+  group_by(gendifnegind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# All slopes are different between genders among HIV negative people
+gendifslopeprop2 <- 0.00
+
+# Fraction of imputed dfs where differenes between 
+# intercepts are <= 0. 
+gendifintsum2 <- slopeintdif2 %>%
+  filter(term == "(Intercept)") %>%
+  mutate(gendifneg = Female_Negative - Male_Negative, # Ha: Female intercepts larger than males
+         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
+  group_by(gendifnegind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# All intercepts are different between genders among HIV negative people
+gendifintprop2 <- 0.00
+
+hivdifmslopesum2 <- slopeintdif2 %>%
+  filter(term == "age0") %>%
+  mutate(hivdifm = Male_Negative - Male_Positive, # Ha: HIV negative males larger than HIV pos males
+         hivdifmind = as.factor(ifelse(hivdifm <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifmind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of slopes which are <= 0 between Hiv neg and pos men
+hivdifmslopeprop2 <- hivdifmslopesum2$prop[2]
+
+hivdifmintsum2 <- slopeintdif2 %>%
+  filter(term == "(Intercept)") %>%
+  mutate(hivdifm = Male_Positive - Male_Negative, # Ha: HIV pos males larger than HIV neg males
+         hivdifmind = as.factor(ifelse(hivdifm <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifmind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of intercept differences <=0
+hivdifmintprop2 <- 0.00
+
+hivdifwslopesum2 <- slopeintdif2 %>%
+  filter(term == "age0") %>%
+  mutate(hivdifw = Female_Negative - Female_Positive, # Ha: HIV negative males larger than HIV pos males
+         hivdifwind = as.factor(ifelse(hivdifw <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifwind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of slopes which are <= 0 between Hiv neg and pos women
+hivdifwslopeprop2 <- 0.00
+
+hivdifwintsum2 <- slopeintdif2 %>%
+  filter(term == "(Intercept)") %>%
+  mutate(hivdifw = Female_Positive - Female_Negative, # Ha: HIV pos females larger than HIV neg females
+         hivdifwind = as.factor(ifelse(hivdifw <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifwind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of intercept differences <=0
+hivdifwintprop2 <- 0.00
+```
+
+```{r wvar_setup, include = FALSE, warning = FALSE}
+
+# Unnest tidy summary for (lme) data on within individual variance
+modwvar <- tidysumamp %>%
+  unnest(wvar, .drop = TRUE)
+
+wvardif <- modwvar %>%
+  select(-lwrwsd, -uprwsd) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, wsd) 
+
+gendifwvarsum <- wvardif %>%
+  mutate(gendifneg = Female_Negative - Male_Negative,
+         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
+  group_by(gendifnegind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of wvars that were <= 0 comparing neg Females to males
+gendifwvarprop <- gendifwvarsum$prop[2]
+
+hivdifmwvarsum <- wvardif %>%
+  mutate(hivdifm = Male_Positive - Male_Negative,
+         hivdifmind = as.factor(ifelse(hivdifm <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifmind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of wvars that were <= 0 comparing hiv pos males to hiv neg males
+hivdifmwvarprop <- hivdifmwvarsum$prop[2]
+
+hivdifwwvarsum <- wvardif %>%
+  mutate(hivdifw = Female_Positive - Female_Negative,
+         hivdifwind = as.factor(ifelse(hivdifw <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifwind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of wvars that were <= 0 comparing hiv pos females to hiv neg females
+hivdifwwvarprop <- 0.00
+
+# ====================
+# LMER
+# ====================
 # Unnest tidy summary for (lmer) data on within individual variance
 modwvar2 <- tidysumamp %>%
   unnest(wvar2, .drop = TRUE)
 
+wvardif2 <- modwvar2 %>%
+  select(-lwrwsd, -uprwsd) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, wsd) 
+
+gendifwvarsum2 <- wvardif2 %>%
+  mutate(gendifneg = Female_Negative - Male_Negative,
+         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
+  group_by(gendifnegind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of wvars that were <= 0 comparing neg Females to males
+gendifwvarprop2 <- gendifwvarsum2$prop[2]
+
+hivdifmwvarsum2 <- wvardif2 %>%
+  mutate(hivdifm = Male_Positive - Male_Negative,
+         hivdifmind = as.factor(ifelse(hivdifm <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifmind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of wvars that were <= 0 comparing hiv pos males to hiv neg males
+hivdifmwvarprop2 <- hivdifmwvarsum2$prop[2]
+
+hivdifwwvarsum2 <- wvardif2 %>%
+  mutate(hivdifw = Female_Positive - Female_Negative,
+         hivdifwind = as.factor(ifelse(hivdifw <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifwind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of wvars that were <= 0 comparing hiv pos females to hiv neg females
+hivdifwwvarprop2 <- 0.00
+```
+
+```{r bvar_setup, include = FALSE, warning = FALSE}
+
+# Uneest tidy summary for (lme) data on between individual variance
+modbvar <- tidysumamp %>%
+  unnest(bvar, .drop = TRUE)
+
+bvardif <- modbvar %>%
+  select(-lwrbsd, -uprbsd) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, bsd) 
+
+gendifbvarsum <- bvardif %>%
+  mutate(gendifneg = Male_Negative - Female_Negative, # Ha: Male larger than females in neg
+         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
+  group_by(gendifnegind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of bvars that were <= 0 comparing neg males to females
+gendifbvarprop <- 0.00
+
+hivdifmbvarsum <- bvardif %>%
+  mutate(hivdifm = Male_Negative - Male_Positive, # Ha: Male neg larger than pos
+         hivdifmind = as.factor(ifelse(hivdifm <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifmind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of bvars that were <= 0 comparing hiv neg males to hiv pos males
+hivdifmbvarprop <- 0.00
+
+hivdifwbvarsum <- bvardif %>%
+  mutate(hivdifw = Female_Negative - Female_Positive, # Ha: Female neg larger than pos
+         hivdifwind = as.factor(ifelse(hivdifw <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifwind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of wvars that were <= 0 comparing hiv pos females to hiv neg females
+hivdifwbvarprop <- 0.00
+
+# ===================
+# LMER
+# ===================
+
 # Uneest tidy summary for (lmer) data on between individual variance
 modbvar2 <- tidysumamp %>%
   unnest(bvar2, .drop = TRUE)
+
+bvardif2 <- modbvar2 %>%
+  select(-lwrbsd, -uprbsd) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, bsd) 
+
+gendifbvarsum2 <- bvardif2 %>%
+  mutate(gendifneg = Male_Negative - Female_Negative, # Ha: Male larger than females in neg
+         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
+  group_by(gendifnegind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of bvars that were <= 0 comparing neg males to females
+gendifbvarprop2 <- 0.00
+
+hivdifmbvarsum2 <- bvardif2 %>%
+  mutate(hivdifm = Male_Negative - Male_Positive, # Ha: Male neg larger than pos
+         hivdifmind = as.factor(ifelse(hivdifm <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifmind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of bvars that were <= 0 comparing hiv neg males to hiv pos males
+hivdifmbvarprop2 <- 0.00
+
+hivdifwbvarsum2 <- bvardif2 %>%
+  mutate(hivdifw = Female_Negative - Female_Positive, # Ha: Female neg larger than pos
+         hivdifwind = as.factor(ifelse(hivdifw <= 0, "Null", "Diff"))) %>%
+  group_by(hivdifwind) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n), 2))
+
+# Fraction of wvars that were <= 0 comparing hiv pos females to hiv neg females
+hivdifwbvarprop2 <- 0.00
+
+
+```
+
+```{r power_setup, include = FALSE, warning = FALSE}
+
+# Unnest tidy summary for (lme) data on power coefficient
+modpower <- tidysumamp %>%
+  unnest(power, .drop = TRUE)
 
 ```
 
@@ -367,6 +682,15 @@ slopeplot <- modslopeint %>%
 slopeplot
 ```
 
+<br>
+
+Fraction of slope differences <= 0 for different alternative hypotheses:
+
+* Ha 1: Female slopes are larger than male slopes in HIV negative participants: `r gendifslopeprop`
+* Ha 2: Among males HIV negative slopes are larger than positive slopes: `r hivdifmslopeprop`
+* Ha 3: Among females HIV negative slopes are larger than positive slopes: `r hivdifwslopeprop`
+
+
 ```{r amp_model_slope_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
 
 # Plot all of the beta's for age mixing pattern in 
@@ -386,6 +710,13 @@ slopeplot2 <- modslopeint2 %>%
 slopeplot2
 ```
 
+<br>
+
+Fraction of slope differences <= 0 for different alternative hypotheses:
+
+* Ha 1: Female slopes are larger than male slopes in HIV negative participants: `r gendifslopeprop2`
+* Ha 2: Among males HIV negative slopes are larger than positive slopes: `r hivdifmslopeprop2`
+* Ha 3: Among females HIV negative slopes are larger than positive slopes: `r hivdifwslopeprop2`
 
 ```{r amp_model_intercept_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot all of the intercepts for age mixing pattern in 
@@ -405,6 +736,14 @@ interplot <- modslopeint %>%
 interplot
 ```
 
+<br>
+
+Fraction of intercept differences <= 0 for different alternative hypotheses:
+
+* Ha: Female intercepts are larger than men in HIV negative participants: `r gendifintprop`
+* Ha: HIV positive intercepts are larger than negative intercepts among men: `r hivdifmintprop`
+* Ha: HIV positive intercepts are larger than negative intercepts among women: `r hivdifwintprop`
+
 ```{r amp_model_intercept_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot all of the intercepts for age mixing pattern in 
 # each of the 100 datasets (by imputation and gender)
@@ -423,6 +762,15 @@ interplot2 <- modslopeint2 %>%
 interplot2
 ```
 
+
+<br>
+
+Fraction of intercept differences <= 0 for different alternative hypotheses:
+
+* Ha: Female intercepts are larger than men in HIV negative participants: `r gendifintprop2`
+* Ha: HIV positive intercepts are larger than negative intercepts among men: `r hivdifmintprop2`
+* Ha: HIV positive intercepts are larger than negative intercepts among women: `r hivdifwintprop2`
+
 ```{r amp_model_wvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the residual variances for age mixing pattern
 # in each of the 100 datasets (by imputation and gender)
@@ -439,6 +787,15 @@ wvarplot <- modwvar %>%
 
 wvarplot
 ```
+
+<br>
+
+Fraction of within-subject variation differences <= 0 for different alternative hypotheses:
+
+* Ha: Female within-subject standard errors are larger than males in HIV negative participants: `r gendifwvarprop`
+* Ha: HIV positive men have larger within-subject standard errors than negative men: `r hivdifmwvarprop`
+* Ha: HIV positive women have larger within-subject standard errors than negative women: `r hivdifwwvarprop`
+
 
 ```{r amp_model_wvar_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the residual variances for age mixing pattern
@@ -457,6 +814,15 @@ wvarplot2 <- modwvar2 %>%
 wvarplot2
 ```
 
+<br>
+
+Fraction of within-subject variation differences <= 0 for different alternative hypotheses:
+
+* Ha: Female within-subject standard errors are larger than males in HIV negative participants: `r gendifwvarprop2`
+* Ha: HIV positive men have larger within-subject standard errors than negative men: `r hivdifmwvarprop2`
+* Ha: HIV positive women have larger within-subject standard errors than negative women: `r hivdifwwvarprop2`
+
+
 ```{r amp_model_bvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the between subject variances for age mixing pattern
 # in each of the 100 datasets (by imputation and gender)
@@ -474,6 +840,21 @@ bvarplot <- modbvar %>%
 
 bvarplot
 ```
+
+<br>
+
+Fraction of between-subject variation differences <= 0 for different alternative hypotheses:
+
+* Ha: Male between-subject standard errors are larger than females in HIV negative participants: `r gendifbvarprop`
+* Ha: HIV negative men have larger between-subject standard errors than positive men: `r hivdifmbvarprop`
+* Ha: HIV negative women have larger between-subject standard errors than positive women: `r hivdifwbvarprop`
+
+<br>
+
+For some of the models on the some datasets (e.g. impution 9 in the HIV positive female sub-population), I recieved this error message when trying to obtain the CIs for the between-subject (intercept) SD: "cannot get confidence intervals on var-cov components: Non-positive definite approximate variance-covariance". According to Jose Pinheiro, this "indicates that, although the optimization algorithm converged (according to the criteria defined in the ms() function), the Hessian matrix calculated at the converged values was not negative-definite
+and therefore an approximate covariance matrix for the MLE's could not be obtained. This is generally caused by a flat log-likelihood surface, for which the algorithm decided that no further improvements were possible and declared convergence. This is an indication that the model may be overparameterized and that you should cut down in the number of parameters." 
+
+<br>
 
 ```{r amp_model_bvar_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the between subject variances for age mixing pattern
@@ -495,10 +876,13 @@ bvarplot2
 
 <br>
 
-For some of the models on the some datasets (e.g. impution 9 in the HIV positive female sub-population), I recieved this error message when trying to obtain the CIs for the between-subject (intercept) SD: "cannot get confidence intervals on var-cov components: Non-positive definite approximate variance-covariance". According to Jose Pinheiro, this "indicates that, although the optimization algorithm converged (according to the criteria defined in the ms() function), the Hessian matrix calculated at the converged values was not negative-definite
-and therefore an approximate covariance matrix for the MLE's could not be obtained. This is generally caused by a flat log-likelihood surface, for which the algorithm decided that no further improvements were possible and declared convergence. This is an indication that the model may be overparameterized and that you should cut down in the
-number of parameters." 
+Fraction of between-subject variation differences <= 0 for different alternative hypotheses:
 
+*  Ha: Male between-subject standard errors are larger than females in HIV negative participants: `r gendifbvarprop2`
+*  Ha: HIV negative men have larger between-subject standard errors than positive men: `r hivdifmbvarprop2`
+*  Ha: HIV negative women have larger between-subject standard errors than positive women: `r hivdifwbvarprop2`
+
+<br>
 
 ```{r amp_model_power_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 

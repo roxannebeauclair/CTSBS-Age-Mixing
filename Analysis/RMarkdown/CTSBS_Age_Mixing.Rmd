@@ -676,7 +676,7 @@ slopeplot <- modslopeint %>%
   facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
-  ylab("Slope of regression line") +
+  ylab("Slope of regression line (nlme)") +
   theme
 
 slopeplot
@@ -686,9 +686,9 @@ slopeplot
 
 Fraction of slope differences <= 0 for different alternative hypotheses:
 
-* Ha 1: Female slopes are larger than male slopes in HIV negative participants: `r gendifslopeprop`
-* Ha 2: Among males HIV negative slopes are larger than positive slopes: `r hivdifmslopeprop`
-* Ha 3: Among females HIV negative slopes are larger than positive slopes: `r hivdifwslopeprop`
+* Ha 1: Slopes of women are larger than slopes of men in HIV negative participants: `r gendifslopeprop`
+* Ha 2: HIV negative men have larger slopes than HIV positive men: `r hivdifmslopeprop`
+* Ha 3: HIV negative women have larger slopes than HIV positive women: `r hivdifwslopeprop`
 
 
 ```{r amp_model_slope_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
@@ -704,7 +704,7 @@ slopeplot2 <- modslopeint2 %>%
   facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
-  ylab("Slope of regression line") +
+  ylab("Slope of regression line (lme4)") +
   theme
 
 slopeplot2
@@ -714,9 +714,9 @@ slopeplot2
 
 Fraction of slope differences <= 0 for different alternative hypotheses:
 
-* Ha 1: Female slopes are larger than male slopes in HIV negative participants: `r gendifslopeprop2`
-* Ha 2: Among males HIV negative slopes are larger than positive slopes: `r hivdifmslopeprop2`
-* Ha 3: Among females HIV negative slopes are larger than positive slopes: `r hivdifwslopeprop2`
+* Ha 1: Slopes of women are larger than slopes of men in HIV negative participants: `r gendifslopeprop2`
+* Ha 2: HIV negative men have larger slopes than HIV positive men: `r hivdifmslopeprop2`
+* Ha 3: HIV negative women have larger slopes than HIV positive women: `r hivdifwslopeprop2`
 
 ```{r amp_model_intercept_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot all of the intercepts for age mixing pattern in 
@@ -730,7 +730,7 @@ interplot <- modslopeint %>%
   facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
-  ylab("Partner age for 15 year olds") +
+  ylab("Partner age for 15 year olds (nlme)") +
   theme
 
 interplot
@@ -740,9 +740,9 @@ interplot
 
 Fraction of intercept differences <= 0 for different alternative hypotheses:
 
-* Ha: Female intercepts are larger than men in HIV negative participants: `r gendifintprop`
-* Ha: HIV positive intercepts are larger than negative intercepts among men: `r hivdifmintprop`
-* Ha: HIV positive intercepts are larger than negative intercepts among women: `r hivdifwintprop`
+* Ha: Women have larger intercepts than men among HIV negative participants: `r gendifintprop`
+* Ha: HIV positive men have larger intercepts than HIV negative men: `r hivdifmintprop`
+* Ha: HIV positive women have larger intercepts than HIV negative women: `r hivdifwintprop`
 
 ```{r amp_model_intercept_plot2, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot all of the intercepts for age mixing pattern in 
@@ -756,7 +756,7 @@ interplot2 <- modslopeint2 %>%
   facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
-  ylab("Partner age for 15 year olds") +
+  ylab("Partner age for 15 year olds (lme4)") +
   theme
 
 interplot2
@@ -767,9 +767,9 @@ interplot2
 
 Fraction of intercept differences <= 0 for different alternative hypotheses:
 
-* Ha: Female intercepts are larger than men in HIV negative participants: `r gendifintprop2`
-* Ha: HIV positive intercepts are larger than negative intercepts among men: `r hivdifmintprop2`
-* Ha: HIV positive intercepts are larger than negative intercepts among women: `r hivdifwintprop2`
+* Ha: Women have larger intercepts than men among HIV negative participants: `r gendifintprop2`
+* Ha: HIV positive men have larger intercepts than HIV negative men: `r hivdifmintprop2`
+* Ha: HIV positive women have larger intercepts than HIV negative women: `r hivdifwintprop2`
 
 ```{r amp_model_wvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the residual variances for age mixing pattern
@@ -782,7 +782,7 @@ wvarplot <- modwvar %>%
   facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
-  ylab("Within-Subject SD") +
+  ylab("Within-Subject SD (nlme)") +
   theme
 
 wvarplot
@@ -792,7 +792,7 @@ wvarplot
 
 Fraction of within-subject variation differences <= 0 for different alternative hypotheses:
 
-* Ha: Female within-subject standard errors are larger than males in HIV negative participants: `r gendifwvarprop`
+* Ha: Women have larger within-subject standard errors than men among HIV negative participants: `r gendifwvarprop`
 * Ha: HIV positive men have larger within-subject standard errors than negative men: `r hivdifmwvarprop`
 * Ha: HIV positive women have larger within-subject standard errors than negative women: `r hivdifwwvarprop`
 
@@ -808,7 +808,7 @@ wvarplot2 <- modwvar2 %>%
   facet_grid(hiv ~ sex) +
   coord_flip() +
   xlab("Imputation") +
-  ylab("Within-Subject SD") +
+  ylab("Within-Subject SD (lme4)") +
   theme
 
 wvarplot2
@@ -818,7 +818,7 @@ wvarplot2
 
 Fraction of within-subject variation differences <= 0 for different alternative hypotheses:
 
-* Ha: Female within-subject standard errors are larger than males in HIV negative participants: `r gendifwvarprop2`
+* Ha: Women have larger within-subject standard errors than men among HIV negative participants: `r gendifwvarprop2`
 * Ha: HIV positive men have larger within-subject standard errors than negative men: `r hivdifmwvarprop2`
 * Ha: HIV positive women have larger within-subject standard errors than negative women: `r hivdifwwvarprop2`
 
@@ -835,7 +835,7 @@ bvarplot <- modbvar %>%
   coord_flip() +
   scale_y_continuous(limits = c(0, 20)) +
   xlab("Imputation") +
-  ylab("between-Subject SD") +
+  ylab("between-Subject SD (nlme)") +
   theme
 
 bvarplot
@@ -845,9 +845,9 @@ bvarplot
 
 Fraction of between-subject variation differences <= 0 for different alternative hypotheses:
 
-* Ha: Male between-subject standard errors are larger than females in HIV negative participants: `r gendifbvarprop`
-* Ha: HIV negative men have larger between-subject standard errors than positive men: `r hivdifmbvarprop`
-* Ha: HIV negative women have larger between-subject standard errors than positive women: `r hivdifwbvarprop`
+* Ha: Men have larger between-subject standard errors than women among HIV negative participants: `r gendifbvarprop`
+* Ha: HIV negative men have larger between-subject standard errors than HIV positive men: `r hivdifmbvarprop`
+* Ha: HIV negative women have larger between-subject standard errors than HIV positive women: `r hivdifwbvarprop`
 
 <br>
 
@@ -868,7 +868,7 @@ bvarplot2 <- modbvar2 %>%
   coord_flip() +
   scale_y_continuous(limits = c(0, 20)) +
   xlab("Imputation") +
-  ylab("between-Subject SD") +
+  ylab("between-Subject SD (lme4)") +
   theme
 
 bvarplot2
@@ -878,9 +878,9 @@ bvarplot2
 
 Fraction of between-subject variation differences <= 0 for different alternative hypotheses:
 
-*  Ha: Male between-subject standard errors are larger than females in HIV negative participants: `r gendifbvarprop2`
-*  Ha: HIV negative men have larger between-subject standard errors than positive men: `r hivdifmbvarprop2`
-*  Ha: HIV negative women have larger between-subject standard errors than positive women: `r hivdifwbvarprop2`
+*  Ha: Men have larger between-subject standard errors than women among HIV negative participants: `r gendifbvarprop2`
+*  Ha: HIV negative men have larger between-subject standard errors than HIV positive men: `r hivdifmbvarprop2`
+*  Ha: HIV negative women have larger between-subject standard errors than HIV positive women: `r hivdifwbvarprop2`
 
 <br>
 
@@ -898,7 +898,7 @@ powplot <- modpower %>%
   coord_flip() +
   #scale_y_continuous(limits = c(0, 20)) +
   xlab("Imputation") +
-  ylab("Power variance function coefficient") +
+  ylab("Power variance function coefficient (nlme)") +
   theme
 
 powplot

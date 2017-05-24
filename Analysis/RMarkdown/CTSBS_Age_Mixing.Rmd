@@ -16,6 +16,8 @@ concurdata <- paste0(cdata, "/ctsbs_concur_added_data.rda")
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
 imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
 bootdata <- paste0(cdata, "/ctsbs_boot_amp_data.rda")
+groupdata <- paste0(cdata, "/ctsbs_group_data.rda")
+
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
 
@@ -41,6 +43,7 @@ load(imputedata)
 load(imputedatapart)
 load(concurdata)
 load(bootdata)
+load(groupdata)
 
 # ====================
 # Set specific global options
@@ -419,12 +422,6 @@ slopeplot
 
 <br>
 
-Fraction of slope differences <= 0 for different alternative hypotheses:
-
-* Ha 1: Slopes of women are larger than slopes of men in HIV negative participants: `r gendifslopeprop`
-* Ha 2: HIV negative men have larger slopes than HIV positive men: `r hivdifmslopeprop`
-* Ha 3: HIV negative women have larger slopes than HIV positive women: `r hivdifwslopeprop`
-
 
 ```{r amp_model_intercept_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot all of the intercepts for age mixing pattern in 
@@ -446,12 +443,6 @@ interplot
 
 <br>
 
-Fraction of intercept differences <= 0 for different alternative hypotheses:
-
-* Ha: Women have larger intercepts than men among HIV negative participants: `r gendifintprop`
-* Ha: HIV positive men have larger intercepts than HIV negative men: `r hivdifmintprop`
-* Ha: HIV positive women have larger intercepts than HIV negative women: `r hivdifwintprop`
-
 ```{r amp_model_wvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the residual variances for age mixing pattern
 # in each of the 100 datasets (by imputation and gender)
@@ -471,12 +462,6 @@ wvarplot
 
 <br>
 
-Fraction of within-subject variation differences <= 0 for different alternative hypotheses:
-
-* Ha: Women have larger within-subject standard errors than men among HIV negative participants: `r gendifwvarprop`
-* Ha: HIV positive men have larger within-subject standard errors than negative men: `r hivdifmwvarprop`
-* Ha: HIV positive women have larger within-subject standard errors than negative women: `r hivdifwwvarprop`
-
 
 ```{r amp_model_bvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the between subject variances for age mixing pattern
@@ -495,14 +480,6 @@ bvarplot <- modbvar %>%
 
 bvarplot
 ```
-
-<br>
-
-Fraction of between-subject variation differences <= 0 for different alternative hypotheses:
-
-* Ha: Men have larger between-subject standard errors than women among HIV negative participants: `r gendifbvarprop`
-* Ha: HIV negative men have larger between-subject standard errors than HIV positive men: `r hivdifmbvarprop`
-* Ha: HIV negative women have larger between-subject standard errors than HIV positive women: `r hivdifwbvarprop`
 
 <br>
 
@@ -527,7 +504,6 @@ powplot <- modpower %>%
 powplot
 ```
 
-In the power variance function coefficient plot, there were 20 imputations removed because "Non-positive definite approximate variance-covariance".
 
 ```{r age_hiv_fig, include = FALSE, warning = FALSE, fig.height = 8}
 # Create dataframe that summarizes the proportion of relationships

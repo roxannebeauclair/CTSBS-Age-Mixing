@@ -324,19 +324,22 @@ OrdPred <- function(mod, n, modAns){
 # Creating a linear mixed model with random intercept for person
 # This is specifically for age-mixing patterns
 
-ampmodel <- function(df) {
-  lme(agep ~ age0, 
-      data = df, 
-      random = ~1 | id,
-      weights = varPower(value = 0.5, form = ~age0 + 1),
-      method = "REML")
-}
-
-ampmodel2 <- function(df) {
-  
-  lmer(agep ~ age0 + (1 | id),
-       data = df,
-       REML = TRUE)
+ampmodel <- function(df, s, h) {
+ 
+  if(s == "Male" | h == "Negative") {
+    
+    lme(agep ~ age0, 
+        data = df, 
+        random = ~1 | id,
+        weights = varPower(value = 0.5, form = ~age0 + 1),
+        method = "REML")
+    
+  } else {
+    
+    lmer(agep ~ age0 + (1 | id),
+         data = df,
+         REML = TRUE)
+  }
 }
 
 # Extracts the between subject SD from agemixing pattern model
@@ -344,123 +347,118 @@ ampmodel2 <- function(df) {
 
 bvar <- function(model) {
   
-  # Must take an nlme model object
-  # Outputs a dataframe 
+  # Outputs a df with between-subject variance, upr & lwr limits
   
-  bsd <- VarCorr(model)[1, 2] %>%
-    as.numeric() %>%
-    round(2)
-  
-  # The tryCatch function is used so that the function will keep going even 
-  # if there is an error for one of the models. If there is an error, it
-  # will just make the value missing
-  lwrbsd <- tryCatch({
-    intervals(model)$reStruct$id$lower  %>%
+  if(class(model)[1] == "lmerMod") {
+    
+    # Must take an merMod  object
+    
+    bsd <- as.data.frame(VarCorr(model))[1, 5] %>%
       round(2)
-  }, error = function(e) {
-    print(paste("My error: ", e)); NA
-  })
-  
-  uprbsd <- tryCatch({
-    intervals(model)$reStruct$id$upper  %>%
+    
+    # The tryCatch function is used so that the function will keep going even 
+    # if there is an error for one of the models. If there is an error, it
+    # will just make the value missing
+    lwrbsd <- tryCatch({
+      confint(model)[1, 1] %>%
+        round(2)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+    
+    uprbsd <- tryCatch({
+      confint(model)[1, 2] %>%
+        round(2)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+    
+  } else {
+    
+    # Must take an nlme model object
+    
+    bsd <- VarCorr(model)[1, 2] %>%
+      as.numeric() %>%
       round(2)
-  }, error = function(e) {
-    print(paste("My error: ", e)); NA
-  })
+    
+    lwrbsd <- tryCatch({
+      intervals(model)$reStruct$id$lower  %>%
+        round(2)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+    
+    uprbsd <- tryCatch({
+      intervals(model)$reStruct$id$upper  %>%
+        round(2)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+  }
   
   data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
 }
 
-bvar2 <- function(model) {
-  
-  # Must take an merMod  object
-  # Outputs a dataframe 
-  
-  bsd <- as.data.frame(VarCorr(model))[1, 5] %>%
-    round(2)
-  
-  # The tryCatch function is used so that the function will keep going even 
-  # if there is an error for one of the models. If there is an error, it
-  # will just make the value missing
-  lwrbsd <- tryCatch({
-    confint(model)[1, 1] %>%
-      round(2)
-  }, error = function(e) {
-    print(paste("My error: ", e)); NA
-  })
-  
-  uprbsd <- tryCatch({
-    confint(model)[1, 2] %>%
-      round(2)
-  }, error = function(e) {
-    print(paste("My error: ", e)); NA
-  })
-  
-  data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
-}
 
 # Extracts the within subject SD from agemixing pattern model
 # Also upper and lower CI limits
 
 wvar <- function(model) {
   
-  # Must take an nlme model object
-  # Outputs a dataframe
+  # Outputs a df with within-subject variance, upr & lwr limits
   
-  wsd <- VarCorr(model)[2, 2] %>%
-    as.numeric() %>%
-    round(2)
-  
-  # The tryCatch function is used so that the function will keep going even 
-  # if there is an error for one of the models. If there is an error, it
-  # will just make the value missing
-  lwrwsd <- tryCatch({
-    (intervals(model)$sigma[1])  %>%
+  if(class(model)[1] == "lmerMod") {
+    
+    # Takes merMod model object
+    
+    wsd <- as.data.frame(VarCorr(model))[2, 5] %>%
       round(2)
-  }, error = function(e) {
-    print(paste("My error: ", e)); NA
-  })
-  
-  uprwsd <- tryCatch({
-    (intervals(model)$sigma[3])  %>%
+    
+    # The tryCatch function is used so that the function will keep going even 
+    # if there is an error for one of the models. If there is an error, it
+    # will just make the value missing
+    lwrwsd <- tryCatch({
+      confint(model)[2, 1] %>%
+        round(2)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+    
+    uprwsd <- tryCatch({
+      confint(model)[2, 2] %>%
+        round(2)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+    
+  } else {
+    
+    # Must take an nlme model object
+    
+    wsd <- VarCorr(model)[2, 2] %>%
+      as.numeric() %>%
       round(2)
-  }, error = function(e) {
-    print(paste("My error: ", e)); NA
-  })
-  
+    
+    lwrwsd <- tryCatch({
+      (intervals(model)$sigma[1])  %>%
+        round(2)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+    
+    uprwsd <- tryCatch({
+      (intervals(model)$sigma[3])  %>%
+        round(2)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+  }
+    
   data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
 }
 
-wvar2 <- function(model) {
-  
-  # Must take an nlme model object
-  # Outputs a dataframe
-  
-  wsd <- as.data.frame(VarCorr(model))[2, 5] %>%
-    round(2)
-  
-  # The tryCatch function is used so that the function will keep going even 
-  # if there is an error for one of the models. If there is an error, it
-  # will just make the value missing
-  lwrwsd <- tryCatch({
-    confint(model)[2, 1] %>%
-      round(2)
-  }, error = function(e) {
-    print(paste("My error: ", e)); NA
-  })
-  
-  uprwsd <- tryCatch({
-    confint(model)[2, 2] %>%
-      round(2)
-  }, error = function(e) {
-    print(paste("My error: ", e)); NA
-  })
-  
-  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
-}
 
 # Extract the power coefficient
-
 power <- function(model) {
   
   # Takes model object and outputs tidy dataframe

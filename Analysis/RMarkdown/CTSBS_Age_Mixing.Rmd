@@ -15,6 +15,7 @@ cdata <- paste0(wd, "/Data/Cleaned")
 concurdata <- paste0(cdata, "/ctsbs_concur_added_data.rda")
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
 imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
+bootdata <- paste0(cdata, "/ctsbs_boot_amp_data.rda")
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
 
@@ -39,6 +40,7 @@ InstallLoad("magrittr", "MASS", "tidyverse",
 load(imputedata)
 load(imputedatapart)
 load(concurdata)
+load(bootdata)
 
 # ====================
 # Set specific global options
@@ -336,35 +338,6 @@ ampresfig2 <- comb_all %>%
 
 ampresfig2
 
-```
-
-```{r amp_all_setup, include = FALSE, warning = FALSE}
-
-# Create a dataset that nests all of the datasets according to
-# gender, imputation, and hiv status. So with 2 genders, 50 imps, and 2 hiv status,
-# there will be 200 groups/dataframes
-
-impsexhivamp <- dfimp %>%
-  filter(.imp != 0)%>%
-  group_by(.imp, sex, hiv) %>%
-  nest()
-
-# Produce nice summary of the models
-# A model will be applied to all imputations, sex, and hiv subgroups
-
-start.time <- Sys.time()
-
-tidysumamp <- impsexhivamp %>%
-  mutate(model = pmap(list(data, as.character(sex), as.character(hiv)), # pmap changes sex and hiv to numeric, so must force character
-                      ampmodel), #ampmodel is function for nlme amp model
-         modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the b's and intercepts from the models
-         bvar = map(model, bvar), # Obtaining between subject variance using function bvar
-         wvar = map(model, wvar)) # Obtaining within subject variance using function wvar
-         
-
-stop.time <- Sys.time()
-time <- stop.time - start.time
-time
 ```
 
 ```{r slope_int_setup, include = FALSE, warning = FALSE}

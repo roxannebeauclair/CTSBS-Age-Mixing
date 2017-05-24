@@ -490,6 +490,7 @@ bvarplot
 # I belive t is the power coefficient
 
 powplot <- modpower %>%
+  filter(sex == "Male" | hiv == "Negative") %>%
   ggplot(aes(.imp, power)) +
   geom_point() +
   geom_pointrange(aes(ymax = uprpow,

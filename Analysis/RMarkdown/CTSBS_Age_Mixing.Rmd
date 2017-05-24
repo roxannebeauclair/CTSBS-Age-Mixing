@@ -151,7 +151,8 @@ dfampw <- dfamp %>%
   filter(sex == "Female" & hiv == "Negative")
 
 
-# Now fit separate models for men and women
+# Now fit separate models for HIC neg men and women
+# Separate models with and without explicit power var structure
 ampmodm <- lme(agep ~ age0, 
            data = dfampm, 
            random = ~1 | id,
@@ -176,14 +177,22 @@ ampmodw2 <- lme(agep ~ age0,
 
 # Compare fit of male negative models with and without 
 # power variance structure
-aicampmodm1 <- AIC(ampmodm)
-aicampmodm2 <- AIC(ampmodm2)
+bicampmodm1 <- BIC(ampmodm)
+bicampmodm2 <- BIC(ampmodm2)
+
+bicampmodm1
+bicampmodm2
 
 # Compare female negative models
-aicampmodw1 <- AIC(ampmodw)
-aicampmodw2 <- AIC(ampmodw2)
+bicampmodw1 <- BIC(ampmodw)
+bicampmodw2 <- BIC(ampmodw2)
+
+bicampmodw1
+bicampmodw2
+
 
 # Add the predicted values and residuals to the dataset
+# In both neg men and women there should be power var structure
 dfampm <- dfampm %>%
   mutate(pred = predict(ampmodm, newdata = ., level = 0)) %>%
   add_residuals(ampmodm, var = "resid")
@@ -196,6 +205,7 @@ dfampw <- dfampw %>%
 comb <- bind_rows(dfampm, dfampw)
 
 # For only those with HIV
+# Separate models with and without explicit power var structure
 
 dfamphiv <- dfimp %>%
   filter(.imp == n) %>%
@@ -234,13 +244,18 @@ amphivmodw2 <- lme(agep ~ age0,
 
 # Compare fit of male positive models with and without 
 # power variance structure
-aicamphivmodm1 <- AIC(amphivmodm)
-aicamphivmodm2 <- AIC(amphivmodm2)
+bicamphivmodm1 <- BIC(amphivmodm)
+bicamphivmodm2 <- BIC(amphivmodm2)
+
+bicamphivmodm1
+bicamphivmodm2
 
 # Compare female positive models
-aicamphivmodw1 <- AIC(amphivmodw)
-aicamphivmodw2 <- AIC(amphivmodw2)
+bicamphivmodw1 <- BIC(amphivmodw)
+bicamphivmodw2 <- BIC(amphivmodw2)
 
+bicamphivmodw1
+bicamphivmodw2
 
 # Add the predicted values to the dataset
 dfamphivm <- dfamphivm %>%
@@ -248,8 +263,8 @@ dfamphivm <- dfamphivm %>%
   add_residuals(amphivmodm, var = "resid")
 
 dfamphivw <- dfamphivw %>%
-  mutate(pred = predict(amphivmodw, newdata = ., level = 0)) %>%
-  add_residuals(amphivmodw, var = "resid")
+  mutate(pred = predict(amphivmodw2, newdata = ., level = 0)) %>% # Model without var struct
+  add_residuals(amphivmodw2, var = "resid")
 
 #Combine both male and female HIV datasets again
 comb2 <- bind_rows(dfamphivm, dfamphivw) 
@@ -336,16 +351,20 @@ impsexhivamp <- dfimp %>%
 
 # Produce nice summary of the models
 # A model will be applied to all imputations, sex, and hiv subgroups
+
+start.time <- Sys.time()
+
 tidysumamp <- impsexhivamp %>%
-  mutate(model = map(data, ampmodel), #ampmodel is function for nlme amp model
+  mutate(model = pmap(list(data, as.character(sex), as.character(hiv)), # pmap changes sex and hiv to numeric, so must force character
+                      ampmodel), #ampmodel is function for nlme amp model
          modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the b's and intercepts from the models
          bvar = map(model, bvar), # Obtaining between subject variance using function bvar
-         wvar = map(model, wvar), # Obtaining within subject variance using function wvar
-         power = map(model, power), # Obtaining power coefficient using function power
-         model2 = map(data, ampmodel2),
-         modelsum2 = map(model2, ~tidy(.x, effects = "fixed")),
-         bvar2 = map(model2, bvar2),
-         wvar2 = map(model2, wvar2))
+         wvar = map(model, wvar)) # Obtaining within subject variance using function wvar
+         
+
+stop.time <- Sys.time()
+time <- stop.time - start.time
+time
 ```
 
 ```{r slope_int_setup, include = FALSE, warning = FALSE}

@@ -11,6 +11,7 @@ wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSbS Age Mixin
 cdata <- paste0(wd, "/Data/Cleaned")
 
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
+groupdata <- paste0(cdata, "/ctsbs_group_data.rda")
 bootdata <- paste0(cdata, "/ctsbs_boot_amp_data.rda")
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
@@ -64,7 +65,7 @@ time
 # ===================
 # Save tidy dataframe
 # ===================
-
+save(impsexhivamp, file = groupdata)
 save(tidysumamp, file = bootdata)
 
 # ====================================================

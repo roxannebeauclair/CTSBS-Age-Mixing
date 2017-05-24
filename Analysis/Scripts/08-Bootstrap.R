@@ -55,7 +55,8 @@ tidysumamp <- impsexhivamp %>%
                       ampmodel), #ampmodel is function for nlme amp model
          modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the b's and intercepts from the models
          bvar = map(model, bvar), # Obtaining between subject variance using function bvar
-         wvar = map(model, wvar)) # Obtaining within subject variance using function wvar
+         wvar = map(model, wvar), # Obtaining within subject variance using function wvar
+         power = map(model, power)) 
 
 
 stop.time <- Sys.time()

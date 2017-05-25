@@ -118,7 +118,7 @@ rels_last_year <- nrow(df4)
 
 # How many participants had more than 1 relationship
 df5 <- partdfimp %>%
-  filter(.imp ==23) %>%
+  filter(.imp == 23) %>%
   filter(relcount > 1)
 
 parts_many_partner <- nrow(df5)
@@ -534,33 +534,74 @@ hivageplot
 
 <br>
 
-### **DO BRIDGEWIDTHS AND SD'S GROW WITH AGE?**
+### **REPORTING MORE THAN ONE PARTNER**
+
+<br>
+
+```{r multiple partners_setup, include = FALSE, warning = FALSE}
+dfmpm <- partdfimp %>% 
+  filter(.imp == n & 
+           sex == "Male") %>%
+  mutate(mp = as.factor(ifelse(relcount > 1, "Multiple", "One"))) 
+
+dfmpw <- partdfimp %>%
+  filter(.imp == n & 
+           sex == "Female") %>%
+  mutate(mp = as.factor(ifelse(relcount > 1, "Multiple", "One"))) 
+
+agem <- GetT1Stat(dfmpm$agegroup, dfmpm$mp)
+agew <- GetT1Stat(dfmpw$agegroup, dfmpw$mp)
+
+hivm <- GetT1Stat(dfmpm$hiv, dfmpm$mp)
+hivw <- GetT1Stat(dfmpw$hiv, dfmpw$mp)
+
+
+tab1 <- list()
+
+tab1[["Age"]] <- cbind(agew, agem)
+tab1[["HIV status"]] <- cbind(hivm, hivw)
+```
+
+```{r multiple_partners_table, echo = FALSE, warning = FALSE}
+mergeDesc(tab1) %>%
+  htmlTable(caption = "<b>Table 1. Proportion of participants reporting more than 1 partner<b/>",
+            tfoot = "Categories are reported in percentages, n (%).",
+            cgroup = c("Women", "Men"), 
+            n.cgroup = c(2, 2), 
+            ctable = TRUE,
+            padding.rgroup = "&nbsp; &nbsp; &nbsp;")
+
+```
+
+<br>
+
+### **DO BRIDGEWIDTHS GROW WITH AGE?**
 
 ```{r bw_age_sd_setup, include = FALSE}
 bwdfm <- partdfimp %>%
   filter(.imp == n) %>%
-  filter(sex == "Male") %>%
+  filter(sex == "Male" &
+           relcount > 1) %>%
   select(agegroup, bridgewidth) %>%
   group_by(agegroup) %>%
   summarise(n = n(),
-            Mean = round(mean(bridgewidth), 2),
-            sd = round(sd(bridgewidth), 2),
-            SEM = round((sd/sqrt(n)), 2)) %>%
-  rename(SD = sd) %>%
+            Median = median(bridgewidth),
+            Q25 = summary(bridgewidth)[[2]],
+            Q75 = summary(bridgewidth)[[5]]) %>%
   data.frame(row.names = 1) %>%
   format(nsmall = 1)
   
 
 bwdfw <- partdfimp %>%
   filter(.imp == n) %>%
-  filter(sex == "Female") %>%
+  filter(sex == "Female" &
+           relcount > 1) %>%
   select(agegroup, bridgewidth) %>%
   group_by(agegroup) %>%
   summarise(n = n(),
-            Mean = round(mean(bridgewidth), 2),
-            sd = round(sd(bridgewidth), 2),
-            SEM = round((sd/sqrt(n)), 2)) %>%
-  rename(SD = sd) %>%
+            Median = median(bridgewidth),
+            Q25 = summary(bridgewidth)[[2]],
+            Q75 = summary(bridgewidth)[[5]]) %>%
   data.frame(row.names = 1) %>%
   format(nsmall = 1)
   
@@ -569,10 +610,11 @@ bwdfw <- partdfimp %>%
 ```{r bw_age_sd_table, echo = FALSE}
 
 htmlTable(cbind(bwdfm, bwdfw),
-          caption = "<b>Table 1. Mean bridgewidth by age category and gender in randomly selected imputed dataset<b/>",
+          caption = "<b>Table 1. Median and IQR for bridgewidth by age and gender in randomly selected imputed dataset<b/>",
           ctable = TRUE,
-          tfoot = txtMergeLines("SD, Standard Deviation",
-                                "SEM, Standard Error of the Mean"),
+          tfoot = txtMergeLines("IQR, Inter-quartile range",
+                                "Q25, Lower quartile",
+                                "Q75, Upper quartile"),
           cgroup = c("Male", "Female"),
           n.cgroup = c(4,4),
           rowlabel = "Age category")

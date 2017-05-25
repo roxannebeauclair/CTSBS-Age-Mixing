@@ -717,17 +717,24 @@ bwmodpoolw <- part %>%
  
 ```
 
+
+```{r bw_dist_figs_setup, include = FALSE, warning = FALSE}
+bwdf <- partdfimp %>% 
+  filter(.imp != 0 &
+           relcount > 1) 
+```
+
+
 <br>
 
 ###### **Figure 3. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
 
 <br>
 
-```{r bw_density_fig, echo = FALSE, warning = FALSE}
+```{r bw_hiv_density_fig, echo = FALSE, warning = FALSE}
 
 # Check spread of bridgwidths for each grouped dataset
-bwfig <- impsexbw %>%
-  unnest() %>%
+bwhivfig <- bwdf %>%
   ggplot(aes(x = bridgewidth, group = .imp)) +
   geom_density(adjust = 2) +
   facet_grid(hiv ~ sex) +
@@ -735,13 +742,31 @@ bwfig <- impsexbw %>%
   ylab("Density") +
   theme
 
-bwfig
+bwhivfig
 ```
-
 
 <br>
 
-###### **Figure 4. Model coefficients for relationship between HIV and bridgewidth.**
+###### **Figure 4. Distribution of bridge widths for each imputed dataset, by sex and agegroup.**
+
+<br>
+
+```{r bw_age_density_fig, echo = FALSE, warning = FALSE}
+
+# Check spread of bridgwidths for each grouped dataset
+bwagefig <- bwdf %>%
+  ggplot(aes(x = bridgewidth, group = .imp)) +
+  geom_density(adjust = 2) +
+  facet_grid(agegroup ~ sex) +
+  xlab("bridgewidth") +
+  ylab("Density") +
+  theme
+
+bwagefig
+```
+<br>
+
+###### **Figure 5. Model coefficients for relationship between HIV and bridgewidth.**
 
 <br>
 
@@ -777,7 +802,7 @@ bwhivfig
 
 <br>
 
-###### **Figure 5. Expected bridge widths for different values of age (smooth term), by gender.**
+###### **Figure 6. Expected bridge widths for different values of age (smooth term), by gender.**
 
 <br>
 
@@ -787,10 +812,11 @@ bwhivfig
 # Spaghetti plot to show each line for dataset by gender
 bwagefig <- bwmodpredage %>%
   ggplot(aes(x = age, y = pred, group = .imp)) +
-  geom_line() +
+  geom_line(aes(alpha = 0.05)) +
   facet_grid(. ~ sex) +
   xlab("Age") +
   ylab("Expected Bridge Width") +
+  guides(alpha = "none") +
   theme
 
 bwagefig

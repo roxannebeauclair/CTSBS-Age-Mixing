@@ -282,13 +282,10 @@ comb_all <- bind_rows(comb, comb2)
 
 <br>
 
-Here I used linear mixed effects models that were stratified by sex and contained a random intercept for the participant. For the plots, I randomly selected an imputed dataset to visualize the pattern in that population. Heteroskedastic variance is now taken into account in the models that produced these predictions.
+Here I used linear mixed effects models that were stratified by sex and hiv status and contained a random intercept for the participant. For the plots, I randomly selected an imputed dataset to visualize the pattern in that population. Heteroskedastic variance is now taken into account in the models that produced these predictions.
 
 <br>
 
-###### **Figure 1. Age mixing pattern for randomly selected imputed dataset. The top row represents the male and female age mixing patterns HIV negative study population, while the bottom row is for only those with HIV**
-
-<br>
 
 ```{r amp_fig, echo = FALSE, warning = FALSE}
 # Figure visualizing the age mixing pattern
@@ -315,6 +312,10 @@ ampfig <- comb_all %>%
 ampfig
 
 ```
+
+###### **Figure 1. Age mixing pattern for randomly selected imputed dataset.**
+
+<br>
 
 
 ```{r amp_res_fig, include = FALSE, warning = FALSE}
@@ -344,7 +345,7 @@ ampresfig2
 # Unnest tidy summary for data on slope and intercept
 # of all the models
 modslopeint <- tidysumamp %>%
-  unnest(modelsum, .drop = TRUE) %>%
+  unnest(modelsum, .drop = TRUE)
 
 modslopeint
 
@@ -398,6 +399,36 @@ slopeintci <- modslopeint %>%
 
 slopeintci
 
+slopedifci <- difslopesum %>%
+  summarise(meangendifneg = mean(gendifneg),
+            meangendifpos = mean(gendifpos),
+            meanhivdifmale = mean(hivdifmale),
+            meanhivdiffemale = mean(hivdiffemale),
+            lwrgendifneg = quantile(gendifneg, alpha / 2),
+            lwrgendifpos = quantile(gendifpos, alpha / 2),
+            lwrhivdifmale = quantile(hivdifmale, alpha / 2),
+            lwrhivdiffemale = quantile(hivdiffemale, alpha / 2),
+            uprgendifneg = quantile(gendifneg, 1 - alpha / 2),
+            uprgendifpos = quantile(gendifpos, 1 - alpha / 2),
+            uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2),
+            uprhivdiffemale = quantile(hivdiffemale, 1 - alpha / 2)) %>%
+  mutate_all(funs(round(., 2)))
+
+intdifci <- difintsum %>%
+  summarise(meangendifneg = mean(gendifneg),
+            meangendifpos = mean(gendifpos),
+            meanhivdifmale = mean(hivdifmale),
+            meanhivdiffemale = mean(hivdiffemale),
+            lwrgendifneg = quantile(gendifneg, alpha / 2),
+            lwrgendifpos = quantile(gendifpos, alpha / 2),
+            lwrhivdifmale = quantile(hivdifmale, alpha / 2),
+            lwrhivdiffemale = quantile(hivdiffemale, alpha / 2),
+            uprgendifneg = quantile(gendifneg, 1 - alpha / 2),
+            uprgendifpos = quantile(gendifpos, 1 - alpha / 2),
+            uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2),
+            uprhivdiffemale = quantile(hivdiffemale, 1 - alpha / 2)) %>%
+  mutate_all(funs(round(., 2)))
+
 ```
 
 ```{r wvar_setup, include = FALSE, warning = FALSE}
@@ -440,6 +471,22 @@ wsdci <- modwvar %>%
 
 wsdci
 
+wvardifci <- difwvarsum %>%
+  summarise(meangendifneg = mean(gendifneg),
+            meangendifpos = mean(gendifpos),
+            meanhivdifmale = mean(hivdifmale),
+            meanhivdiffemale = mean(hivdiffemale),
+            lwrgendifneg = quantile(gendifneg, alpha / 2),
+            lwrgendifpos = quantile(gendifpos, alpha / 2),
+            lwrhivdifmale = quantile(hivdifmale, alpha / 2),
+            lwrhivdiffemale = quantile(hivdiffemale, alpha / 2),
+            uprgendifneg = quantile(gendifneg, 1 - alpha / 2),
+            uprgendifpos = quantile(gendifpos, 1 - alpha / 2),
+            uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2),
+            uprhivdiffemale = quantile(hivdiffemale, 1 - alpha / 2)) %>%
+  mutate_all(funs(round(., 2)))
+
+
 ```
 
 ```{r bvar_setup, include = FALSE, warning = FALSE}
@@ -481,6 +528,21 @@ bsdci <- modbvar %>%
             upr = quantile(bsd, 1- alpha / 2))
 
 bsdci
+
+bvardifci <- difbvarsum %>%
+  summarise(meangendifneg = mean(gendifneg),
+            meangendifpos = mean(gendifpos),
+            meanhivdifmale = mean(hivdifmale),
+            meanhivdiffemale = mean(hivdiffemale),
+            lwrgendifneg = quantile(gendifneg, alpha / 2),
+            lwrgendifpos = quantile(gendifpos, alpha / 2),
+            lwrhivdifmale = quantile(hivdifmale, alpha / 2),
+            lwrhivdiffemale = quantile(hivdiffemale, alpha / 2),
+            uprgendifneg = quantile(gendifneg, 1 - alpha / 2),
+            uprgendifpos = quantile(gendifpos, 1 - alpha / 2),
+            uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2),
+            uprhivdiffemale = quantile(hivdiffemale, 1 - alpha / 2)) %>%
+  mutate_all(funs(round(., 2)))
 ```
 
 ```{r power_setup, include = FALSE, warning = FALSE}
@@ -523,13 +585,19 @@ powerci <- modpower %>%
 
 powerci
 
+powerdifci <- difpowersum %>%
+  summarise(meangendifneg = mean(gendifneg, na.rm = T),
+            meanhivdifmale = mean(hivdifmale, na.rm = T),
+            lwrgendifneg = quantile(gendifneg, alpha / 2, na.rm = T),
+            lwrhivdifmale = quantile(hivdifmale, alpha / 2, na.rm = T),
+            uprgendifneg = quantile(gendifneg, 1 - alpha / 2, na.rm = T),
+            uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2, na.rm = T)) %>%
+  mutate_all(funs(round(., 2)))
+
 ```
 
 <br>
 
-###### **Figure 2. Extractions of model slopes, intercepts, intercept variance and residual variance for each imputed/bootstrapped dataset.**
-
-<br>
 
 ```{r amp_model_slope_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 
@@ -557,6 +625,18 @@ slopeplot <- modslopeint %>%
 
 slopeplot
 ```
+
+###### **Figure 2. Distribution of age-mixing model slopes for 50 imputed datasets, each bootstraped 10 times.**
+
+<br>
+
+The average difference between: 
+
+* Male and female slopes in the HIV negative population was `r slopedifci$meangendifneg` (95% CI: `r slopedifci$lwrgendifneg` - `r slopedifci$uprgendifneg`)
+* Male and female slopes in the HIV positive population was `r slopedifci$meangendifpos` (95% CI: `r slopedifci$lwrgendifpos` - `r slopedifci$uprgendifpos`)
+* HIV positive and negative slopes in the male population was `r slopedifci$meanhivdifmale` (95% CI: `r slopedifci$lwrhivdifmale` - `r slopedifci$uprhivdifmale`)
+* HIV positive and negative slopes in the female population was `r slopedifci$meanhivdiffemale` (95% CI: `r slopedifci$lwrhivdiffemale` - `r slopedifci$uprhivdiffemale`)
+
 
 <br>
 
@@ -588,6 +668,17 @@ interplot <- modslopeint %>%
 interplot
 ```
 
+###### **Figure 3. Distribution of age-mixing model intercepts for 50 imputed datasets, each bootstraped 10 times.**
+
+<br>
+
+The average difference between: 
+
+* Male and female intercepts in the HIV negative population was `r intdifci$meangendifneg` (95% CI: `r intdifci$lwrgendifneg` - `r intdifci$uprgendifneg`)
+* Male and female intercepts in the HIV positive population was `r intdifci$meangendifpos` (95% CI: `r intdifci$lwrgendifpos` - `r intdifci$uprgendifpos`)
+* HIV positive and negative intercepts in the male population was `r intdifci$meanhivdifmale` (95% CI: `r intdifci$lwrhivdifmale` - `r intdifci$uprhivdifmale`)
+* HIV positive and negative intercepts in the female population was `r intdifci$meanhivdiffemale` (95% CI: `r intdifci$lwrhivdiffemale` - `r intdifci$uprhivdiffemale`)
+
 <br>
 
 ```{r amp_model_wvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
@@ -612,6 +703,17 @@ wvarplot <- modwvar %>%
 
 wvarplot
 ```
+
+###### **Figure 4. Distribution of age-mixing within-subject standard deviations (wsd) for 50 imputed datasets, each bootstraped 10 times.**
+
+<br>
+
+The average difference between: 
+
+* Male and female wsd in the HIV negative population was `r wvardifci$meangendifneg` (95% CI: `r wvardifci$lwrgendifneg` - `r wvardifci$uprgendifneg`)
+* Male and female wsd in the HIV positive population was `r wvardifci$meangendifpos` (95% CI: `r wvardifci$lwrgendifpos` - `r wvardifci$uprgendifpos`)
+* HIV positive and negative wsd in the male population was `r wvardifci$meanhivdifmale` (95% CI: `r wvardifci$lwrhivdifmale` - `r wvardifci$uprhivdifmale`)
+* HIV positive and negative wsd in the female population was `r wvardifci$meanhivdiffemale` (95% CI: `r wvardifci$lwrhivdiffemale` - `r wvardifci$uprhivdiffemale`)
 
 <br>
 
@@ -638,8 +740,18 @@ bvarplot <- modbvar %>%
 bvarplot
 ```
 
+###### **Figure 5. Distribution of age-mixing between-subject standard deviations (bsd) for 50 imputed datasets, each bootstraped 10 times.**
+
 <br>
 
+The average difference between: 
+
+* Male and female bsd in the HIV negative population was `r bvardifci$meangendifneg` (95% CI: `r bvardifci$lwrgendifneg` - `r bvardifci$uprgendifneg`)
+* Male and female bsd in the HIV positive population was `r bvardifci$meangendifpos` (95% CI: `r bvardifci$lwrgendifpos` - `r bvardifci$uprgendifpos`)
+* HIV positive and negative bsd in the male population was `r bvardifci$meanhivdifmale` (95% CI: `r bvardifci$lwrhivdifmale` - `r bvardifci$uprhivdifmale`)
+* HIV positive and negative bsd in the female population was `r bvardifci$meanhivdiffemale` (95% CI: `r bvardifci$lwrhivdiffemale` - `r bvardifci$uprhivdiffemale`)
+
+<br>
 
 ```{r amp_model_power_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 
@@ -665,14 +777,22 @@ powplot <- modpower %>%
 powplot
 ```
 
+###### **Figure 6. Distribution of age-mixing power coefficient for 50 imputed datasets, each bootstraped 10 times. The models for HIV positive women did not explicitly model heteroskedastic variance**
+
+<br>
+
+The average difference between: 
+
+* Male and female bsd in the HIV negative population was `r powerdifci$meangendifneg` (95% CI: `r powerdifci$lwrgendifneg` - `r powerdifci$uprgendifneg`)
+* HIV positive and negative bsd in the male population was `r powerdifci$meanhivdifmale` (95% CI: `r powerdifci$lwrhivdifmale` - `r powerdifci$uprhivdifmale`)
+
+<br>
 
 ```{r age_hiv_fig, include = FALSE, warning = FALSE, fig.height = 8}
 # Create dataframe that summarizes the proportion of relationships
 # in different partner age groups for people who are HIV
 # positive
-hivbyage <- impsexhivamp %>%
-  unnest() %>%
-  ungroup() %>%
+hivbyage <- dfimp %>%
   filter(.imp == n & hiv == "Positive") %>%
   group_by(sex, agepgroup) %>%
   summarise(n = n()) %>%
@@ -770,7 +890,7 @@ bwdfw <- partdfimp %>%
 ```{r bw_age_sd_table, echo = FALSE}
 
 htmlTable(cbind(bwdfm, bwdfw),
-          caption = "<b>Table 1. Median and IQR for bridgewidth by age and gender in randomly selected imputed dataset<b/>",
+          caption = "<b>Table 2. Median and IQR for bridgewidth by age and gender in randomly selected imputed dataset<b/>",
           ctable = TRUE,
           tfoot = txtMergeLines("IQR, Inter-quartile range",
                                 "Q25, Lower quartile",
@@ -887,9 +1007,7 @@ bwdf <- partdfimp %>%
 
 <br>
 
-###### **Figure 3. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
 
-<br>
 
 ```{r bw_hiv_density_fig, echo = FALSE, warning = FALSE}
 
@@ -905,11 +1023,10 @@ bwhivfig <- bwdf %>%
 bwhivfig
 ```
 
-<br>
-
-###### **Figure 4. Distribution of bridge widths for each imputed dataset, by sex and agegroup.**
+###### **Figure 7. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
 
 <br>
+
 
 ```{r bw_age_density_fig, echo = FALSE, warning = FALSE}
 
@@ -924,11 +1041,11 @@ bwagefig <- bwdf %>%
 
 bwagefig
 ```
+
+###### **Figure 8. Distribution of bridge widths for each imputed dataset, by sex and agegroup.**
+
 <br>
 
-###### **Figure 5. Model coefficients for relationship between HIV and bridgewidth.**
-
-<br>
 
 ```{r bw_hiv_fig, echo = FALSE, warning = FALSE}
 
@@ -960,11 +1077,10 @@ bwhivfig
 ```
 
 
-<br>
-
-###### **Figure 6. Expected bridge widths for different values of age (smooth term), by gender.**
+###### **Figure 9. Model coefficients for relationship between HIV and bridgewidth.**
 
 <br>
+
 
 ```{r bw_age_fig, echo = FALSE, warning = FALSE}
 
@@ -983,7 +1099,9 @@ bwagefig
 
 ```
 
+###### **Figure 10. Expected bridge widths for different values of age (smooth term), by gender.**
 
+<br>
 
 ```{r close, include = FALSE, warning = FALSE}
 # ====================================================

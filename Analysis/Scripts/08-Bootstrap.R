@@ -11,7 +11,6 @@ wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSbS Age Mixin
 cdata <- paste0(wd, "/Data/Cleaned")
 
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
-groupdata <- paste0(cdata, "/ctsbs_group_data.rda")
 bootdata <- paste0(cdata, "/ctsbs_boot_amp_data.rda")
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
@@ -43,21 +42,21 @@ load(imputedata)
 # 4. Extract model components
 # 5. Output tidy df
 
-impsexhivamp <- dfimp %>%
-  filter(.imp != 0)%>%
-  group_by(.imp, sex, hiv) %>%
-  nest()
-
 start.time <- Sys.time()
 
-tidysumamp <- impsexhivamp %>%
-  mutate(model = pmap(list(data, as.character(sex), as.character(hiv)), # pmap changes sex and hiv to numeric, so must force character
+tidysumamp <- dfimp %>%
+  filter(.imp != 0)%>%
+  select(.imp, .id, id, sex, hiv, agep, age0) %>%
+  group_by(.imp, sex, hiv) %>%
+  nest() %>%
+  mutate(boot = map(data, ~modelr::bootstrap(., 10))) %>%
+  unnest(boot, .drop = TRUE) %>%
+  mutate(model = pmap(list(strap, as.character(sex), as.character(hiv)), # pmap changes sex and hiv to numeric, so must force character
                       ampmodel), #ampmodel is function for nlme amp model
          modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the b's and intercepts from the models
          bvar = map(model, bvar), # Obtaining between subject variance using function bvar
          wvar = map(model, wvar), # Obtaining within subject variance using function wvar
-         power = map(model, power)) 
-
+         power = map(model, power))
 
 stop.time <- Sys.time()
 time <- stop.time - start.time
@@ -66,15 +65,15 @@ time
 # ===================
 # Save tidy dataframe
 # ===================
-save(impsexhivamp, file = groupdata)
 save(tidysumamp, file = bootdata)
 
 # ====================================================
 # Detach libraries and remove objects from environment
 # ====================================================
-Vectorize(detach)(name = paste0("package:", c("tidyverse", "mice","nlme", 
+Vectorize(detach)(name = paste0("package:", c("tidyverse", "mice",
+                                              "mgcv", "nlme", 
                                               "lme4", "modelr",
-                                              "mgcv", "broom", "splines")), 
+                                              "broom", "splines")), 
                   unload = TRUE, 
                   character.only = TRUE)
 

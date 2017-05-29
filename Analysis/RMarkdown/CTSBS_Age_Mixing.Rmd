@@ -16,8 +16,6 @@ concurdata <- paste0(cdata, "/ctsbs_concur_added_data.rda")
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
 imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
 bootdata <- paste0(cdata, "/ctsbs_boot_amp_data.rda")
-groupdata <- paste0(cdata, "/ctsbs_group_data.rda")
-
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
 
@@ -43,7 +41,6 @@ load(imputedata)
 load(imputedatapart)
 load(concurdata)
 load(bootdata)
-load(groupdata)
 
 # ====================
 # Set specific global options
@@ -344,47 +341,146 @@ ampresfig2
 ```
 
 ```{r slope_int_setup, include = FALSE, warning = FALSE}
-# Unnest tidy summary for (lme) data on slope and intercept
+# Unnest tidy summary for data on slope and intercept
 # of all the models
 modslopeint <- tidysumamp %>%
-  unnest(modelsum, .drop = TRUE)
+  unnest(modelsum, .drop = TRUE) %>%
 
-# Calculate difference between estimate, 
-# then fraction of differences
+modslopeint
+
+# Create df where the terms are in wide format according
+# to subgroup, so that we can calculate differences
 slopeintdif <- modslopeint %>%
   select(-std.error, -statistic, -p.value) %>%
   unite(subpop, sex, hiv) %>%
   spread(subpop, estimate) 
 
-# Fraction of imputed dfs where differenes between 
-# slopes are <= 0. 
-gendifslopesum <- slopeintdif %>%
+slopeintdif
+
+# Calculate differences in slopes for:
+# 1. Males vs. Females in neg population
+# 2. Males vs. Females in pos population
+# 3. Pos vs Neg in male population
+# 4. Pos vs Neg in female population
+
+difslopesum <- slopeintdif %>%
   filter(term == "age0") %>%
   mutate(gendifneg = Female_Negative - Male_Negative, # Ha: Female slopes larger than males
-         gendifnegind = as.factor(ifelse(gendifneg <= 0, "Null", "Diff"))) %>%
-  group_by(gendifnegind) %>%
-  summarize(n = n()) %>%
-  mutate(prop = round(n / sum(n), 2))
+         gendifpos = Female_Positive - Male_Positive, # Ha; Female slopes larger than males
+         hivdifmale = Male_Negative - Male_Positive, # Ha: Negative slopes larger than pos
+         hivdiffemale = Female_Negative - Female_Positive) # Ha: Neg slopes larger than pos
 
-# All slopes are different between genders among HIV negative people
-gendifslopeprop <- 0.00
+difslopesum
+
+# Calculate differences in intercepts for:
+# 1. Males vs. Females in neg population
+# 2. Males vs. Females in pos population
+# 3. Pos vs Neg in male population
+# 4. Pos vs Neg in female population
+
+difintsum <- slopeintdif %>%
+  filter(term == "(Intercept)") %>%
+  mutate(gendifneg = Female_Negative - Male_Negative, # Ha: Female intercepts larger than males
+         gendifpos = Female_Positive - Male_Positive, # Ha; Female intercepts larger than males
+         hivdifmale = Male_Positive - Male_Negative, # Ha: Pos intercepts larger than neg
+         hivdiffemale = Female_Positive - Female_Negative) # Ha: Pos intercepts larger than neg
+
+difintsum
+
+# Now take all of the estimates and calculate CI's using percentile method
+alpha = 0.05
+
+slopeintci <- modslopeint %>%
+  group_by(term, sex, hiv) %>%
+  summarise(mean = mean(estimate),
+            lwr = quantile(estimate, alpha / 2),
+            upr = quantile(estimate, 1- alpha / 2))
+
+slopeintci
 
 ```
 
 ```{r wvar_setup, include = FALSE, warning = FALSE}
 
-# Unnest tidy summary for (lme) data on within individual variance
+# Unnest tidy summary for data on within individual variance
 modwvar <- tidysumamp %>%
   unnest(wvar, .drop = TRUE)
+
+modwvar
+
+wvardif <- modwvar %>%
+  select(-lwrwsd, -uprwsd) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, wsd) 
+
+wvardif
+
+# Calculate differences in within-subject sd for:
+# 1. Males vs. Females in neg population
+# 2. Males vs. Females in pos population
+# 3. Pos vs Neg in male population
+# 4. Pos vs Neg in female population
+
+difwvarsum <- wvardif %>%
+  mutate(gendifneg = Female_Negative - Male_Negative, # Ha: Female wvar larger than males
+         gendifpos = Female_Positive - Male_Positive, # Ha; Female wvar larger than males
+         hivdifmale = Male_Positive - Male_Negative, # Ha: Pos wvar larger than neg
+         hivdiffemale = Female_Positive - Female_Negative) # Ha: Pos wvar larger than neg
+
+difwvarsum
+
+# Now take all of the wvars and calculate CI's using percentile method
+alpha = 0.05
+
+wsdci <- modwvar %>%
+  group_by(sex, hiv) %>%
+  summarise(mean = mean(wsd),
+            lwr = quantile(wsd, alpha / 2),
+            upr = quantile(wsd, 1- alpha / 2))
+
+wsdci
 
 ```
 
 ```{r bvar_setup, include = FALSE, warning = FALSE}
 
-# Uneest tidy summary for (lme) data on between individual variance
+# Unnest tidy summary for data on between individual variance
 modbvar <- tidysumamp %>%
   unnest(bvar, .drop = TRUE)
 
+modbvar
+
+bvardif <- modbvar %>%
+  select(-lwrbsd, -uprbsd) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, bsd) 
+
+bvardif
+
+# Calculate differences in between-subject sd for:
+# 1. Males vs. Females in neg population
+# 2. Males vs. Females in pos population
+# 3. Pos vs Neg in male population
+# 4. Pos vs Neg in female population
+
+difbvarsum <- bvardif %>%
+  mutate(gendifneg = Male_Negative - Female_Negative, # Ha: Male bvar larger than females
+         gendifpos = Male_Positive - Female_Positive, # Ha; Male bvar larger than females
+         hivdifmale = Male_Negative - Male_Positive, # Ha: Neg bvar larger than pos
+         hivdiffemale = Female_Negative - Female_Positive) # Ha: Neg bvar larger than pos
+
+difbvarsum
+
+# Now take all of the bvars and calculate CI's using percentile method
+alpha = 0.05
+
+bsdci <- modbvar %>%
+  group_by(sex, hiv) %>%
+  summarise(mean = mean(bsd),
+            lwr = quantile(bsd, alpha / 2),
+            upr = quantile(bsd, 1- alpha / 2))
+
+bsdci
 ```
 
 ```{r power_setup, include = FALSE, warning = FALSE}
@@ -393,28 +489,70 @@ modbvar <- tidysumamp %>%
 modpower <- tidysumamp %>%
   unnest(power, .drop = TRUE)
 
+modpower
+
+powerdif <- modpower %>%
+  select(-lwrpow, -uprpow) %>%
+  unite(subpop, sex, hiv) %>%
+  spread(subpop, power) 
+
+powerdif
+
+# Calculate differences in power coefficient for:
+# 1. Males vs. Females in neg population
+# 2. Pos vs Neg in male population
+
+
+difpowersum <- powerdif %>%
+  mutate(gendifneg = Male_Negative - Female_Negative, # Ha: Male power larger than females
+         hivdifmale = Male_Negative - Male_Positive) # Ha: Neg power larger than pos
+
+difpowersum
+
+# Now take all of the power coefficients and calculate CI's 
+# using percentile method
+alpha = 0.05
+
+powerci <- modpower %>%
+  filter(sex == "Male" |
+           hiv == "Negative") %>%
+  group_by(sex, hiv) %>%
+  summarise(mean = mean(power, na.rm = T),
+            lwr = quantile(power, alpha / 2, na.rm = T),
+            upr = quantile(power, 1- alpha / 2, na.rm = T))
+
+powerci
+
 ```
 
 <br>
 
-###### **Figure 2. Extractions of model slopes, intercepts, intercept variance and residual variance for each imputed dataset. The top row represents the male and female age mixing patterns in the whole study population, while the bottom row is for only those with HIV**
+###### **Figure 2. Extractions of model slopes, intercepts, intercept variance and residual variance for each imputed/bootstrapped dataset.**
 
 <br>
 
 ```{r amp_model_slope_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 
 # Plot all of the beta's for age mixing pattern in 
-# each of the 100 datasets (by imputation and gender)
+# each of the datasets (by imputation and gender)
+means <- slopeintci %>%
+  filter(term == "age0")
+
 slopeplot <- modslopeint %>%
   filter(term == "age0") %>%
-  ggplot(aes(x = .imp, y = estimate)) +
-  geom_point() +
-  geom_pointrange(aes(ymax = estimate + 2 * std.error,
-                      ymin = estimate - 2 * std.error)) +
+  ggplot(aes(x = estimate)) +
+  geom_density(alpha = 0.2, fill = "blue") +
+  geom_vline(aes(xintercept = mean), 
+             data = means,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = lwr), 
+             data = means,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = upr), 
+             data = means,
+             linetype = "dashed") +
   facet_grid(hiv ~ sex) +
-  coord_flip() +
-  xlab("Imputation") +
-  ylab("Slope of regression line (nlme)") +
+  xlab("Slope of regression line") +
   theme
 
 slopeplot
@@ -424,18 +562,27 @@ slopeplot
 
 
 ```{r amp_model_intercept_plot, echo = FALSE, warning = FALSE, fig.height = 8}
+
 # Plot all of the intercepts for age mixing pattern in 
-# each of the 100 datasets (by imputation and gender)
+# each of the  datasets (by imputation and gender)
+means <- slopeintci %>%
+  filter(term == "(Intercept)")
+
 interplot <- modslopeint %>%
   filter(term == "(Intercept)") %>%
-  ggplot(aes(.imp, estimate)) +
-  geom_point() +
-  geom_pointrange(aes(ymax = estimate + 2 * std.error,
-                      ymin = estimate - 2 * std.error)) +
+  ggplot(aes(x = estimate)) +
+  geom_density(alpha = 0.2, fill = "blue") +
+  geom_vline(aes(xintercept = mean), 
+             data = means,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = lwr), 
+             data = means,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = upr), 
+             data = means,
+             linetype = "dashed") +
   facet_grid(hiv ~ sex) +
-  coord_flip() +
-  xlab("Imputation") +
-  ylab("Partner age for 15 year olds (nlme)") +
+  xlab("Partner age for 15 year olds") +
   theme
 
 interplot
@@ -445,16 +592,22 @@ interplot
 
 ```{r amp_model_wvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the residual variances for age mixing pattern
-# in each of the 100 datasets (by imputation and gender)
+# in each of the datasets (by imputation and gender)
 wvarplot <- modwvar %>%
-  ggplot(aes(.imp, wsd)) +
-  geom_point() +
-  geom_pointrange(aes(ymax = uprwsd,
-                      ymin = lwrwsd)) +
+  ggplot(aes(x = wsd)) +
+  geom_density(alpha = 0.2, fill = "blue") +
+  geom_vline(aes(xintercept = mean), 
+             data = wsdci,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = lwr), 
+             data = wsdci,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = upr), 
+             data = wsdci,
+             linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 65)) +
   facet_grid(hiv ~ sex) +
-  coord_flip() +
-  xlab("Imputation") +
-  ylab("Within-Subject SD (nlme)") +
+  xlab("Within-subject Standard Deviation") +
   theme
 
 wvarplot
@@ -465,17 +618,21 @@ wvarplot
 
 ```{r amp_model_bvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 # Plot each of the between subject variances for age mixing pattern
-# in each of the 100 datasets (by imputation and gender)
+# in each of the datasets (by imputation and gender)
 bvarplot <- modbvar %>%
-  ggplot(aes(.imp, bsd)) +
-  geom_point() +
-  geom_pointrange(aes(ymax = uprbsd,
-                      ymin = lwrbsd)) +
+  ggplot(aes(x = bsd)) +
+  geom_density(alpha = 0.2, fill = "blue") +
+  geom_vline(aes(xintercept = mean), 
+             data = bsdci,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = lwr), 
+             data = bsdci,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = upr), 
+             data = bsdci,
+             linetype = "dashed") +
   facet_grid(hiv ~ sex) +
-  coord_flip() +
-  scale_y_continuous(limits = c(0, 20)) +
-  xlab("Imputation") +
-  ylab("between-Subject SD (nlme)") +
+  xlab("Between-subject Standard Deviation") +
   theme
 
 bvarplot
@@ -490,16 +647,19 @@ bvarplot
 # I belive t is the power coefficient
 
 powplot <- modpower %>%
-  filter(sex == "Male" | hiv == "Negative") %>%
-  ggplot(aes(.imp, power)) +
-  geom_point() +
-  geom_pointrange(aes(ymax = uprpow,
-                      ymin = lwrpow)) +
+  ggplot(aes(x = power)) +
+  geom_density(alpha = 0.2, fill = "blue") +
+  geom_vline(aes(xintercept = mean), 
+             data = powerci,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = lwr), 
+             data = powerci,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = upr), 
+             data = powerci,
+             linetype = "dashed") +
   facet_grid(hiv ~ sex) +
-  coord_flip() +
-  #scale_y_continuous(limits = c(0, 20)) +
-  xlab("Imputation") +
-  ylab("Power variance function coefficient (nlme)") +
+  xlab("Power coefficient") +
   theme
 
 powplot

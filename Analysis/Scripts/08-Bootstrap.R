@@ -21,7 +21,7 @@ fxn <- paste0(wd, "/Scripts/00-Functions.R")
 source(fxn)
 
 
-InstallLoad("magrittr", "tidyverse", 
+InstallLoad("magrittr", "MASS", "tidyverse", 
             "mice","nlme", "lme4", "modelr",
             "mgcv", "broom", "splines")
 
@@ -43,13 +43,14 @@ load(imputedata)
 # 5. Output tidy df
 
 start.time <- Sys.time()
-
+set.seed(4387)
 tidysumamp <- dfimp %>%
   filter(.imp != 0)%>%
   select(.imp, .id, id, sex, hiv, agep, age0) %>%
+  mutate(id = as.factor(id)) %>%
   group_by(.imp, sex, hiv) %>%
   nest() %>%
-  mutate(boot = map(data, ~modelr::bootstrap(., 10))) %>%
+  mutate(boot = map(data, ~bootstrap_clus(., 10))) %>%
   unnest(boot, .drop = TRUE) %>%
   mutate(model = pmap(list(strap, as.character(sex), as.character(hiv)), # pmap changes sex and hiv to numeric, so must force character
                       ampmodel), #ampmodel is function for nlme amp model

@@ -771,4 +771,27 @@ gampredsage <- function(mod) {
                         se.fit = TRUE)[[2]])
 }
 
+# =====================
+# Cluster bootstrapping
+# =====================
 
+clusboot <- function(df) {
+
+  cluster_sample <- data.frame(id = sample(unique(df$id), replace = TRUE))
+  
+  df_sample <- df %>%
+    inner_join(cluster_sample, by = "id")
+  
+  return(df_sample)
+}
+
+bootstrap_clus <- function(data, n, id = ".id") {
+  
+  bootstrap <- purrr::rerun(n, clusboot(data))
+  
+  df <- tibble::data_frame(strap = bootstrap) %>%
+    mutate(.id = row_number())
+  
+  df
+  
+}

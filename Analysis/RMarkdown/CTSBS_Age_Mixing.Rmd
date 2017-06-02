@@ -282,7 +282,7 @@ comb_all <- bind_rows(comb, comb2)
 
 <br>
 
-Here I used linear mixed effects models that were stratified by sex and hiv status and contained a random intercept for the participant. For the plots, I randomly selected an imputed dataset to visualize the pattern in that population. Heteroskedastic variance is now taken into account in the models that produced these predictions.
+Here I used linear mixed effects models that were stratified by sex and hiv status and contained a random intercept for the participant. For the plots, I randomly selected an imputed dataset to visualize the pattern in that population. Heteroskedastic variance is now taken into account in the HIV positive men, HIV negative men, and HIV negative women models.
 
 <br>
 
@@ -777,14 +777,56 @@ powplot <- modpower %>%
 powplot
 ```
 
-###### **Figure 6. Distribution of age-mixing power coefficient for 50 imputed datasets, each bootstraped 10 times. The models for HIV positive women did not explicitly model heteroskedastic variance**
+###### **Figure 6. Distribution for power coefficients for 50 imputed datasets, each bootstraped 10 times.**
 
 <br>
 
 The average difference between: 
+ 
+* Male and female power coefficient in the HIV negative population was `r powerdifci$meangendifneg` (95% CI: `r powerdifci$lwrgendifneg` - `r powerdifci$uprgendifneg`)
+ 
+* HIV positive and negative power coefficient in the male population was `r powerdifci$meanhivdifmale` (95% CI: `r powerdifci$lwrhivdifmale` - `r powerdifci$uprhivdifmale`)
 
-* Male and female bsd in the HIV negative population was `r powerdifci$meangendifneg` (95% CI: `r powerdifci$lwrgendifneg` - `r powerdifci$uprgendifneg`)
-* HIV positive and negative bsd in the male population was `r powerdifci$meanhivdifmale` (95% CI: `r powerdifci$lwrhivdifmale` - `r powerdifci$uprhivdifmale`)
+```{r hiv_prev, echo = FALSE, warning = FALSE}
+hivprev <- partdfimp %>%
+  filter(.imp == n) %>%
+  mutate(agegroup = cut(age,
+                        breaks = c(0, 19, 24, 29, 34, 
+                                   39, 44, 49, 54, 59,
+                                   70),
+                        labels = c("15-19", "20-24", "25-29", 
+                                   "30-34", "35-39", "40-44", 
+                                   "45-49", "50-54", "55-59", 
+                                   "60+"))) %>%
+  group_by(sex, agegroup, hiv) %>%
+  summarise(n = n()) %>%
+  mutate(total = sum(n),
+         prop = n / total) %>%
+  ungroup() %>%
+  group_by(sex, agegroup, hiv, n, total) %>%          # The binom.test() function is not vectorized,
+  mutate(ll = binom.test(n, total)$conf.int[1],       # and thus, we need to make sure each row is   
+         ul = binom.test(n, total)$conf.int[2])       # treated as an individual data frame
+
+hivprevplot <- hivprev %>%
+  filter(hiv == "Positive") %>%
+  ggplot(aes(x = agegroup, y = prop, fill = sex)) +
+  geom_bar(stat = "identity",
+           position = position_dodge()) +
+  geom_errorbar(aes(ymax = ul, ymin = ll),
+                position = position_dodge(0.9),
+                width = 0.10) +
+  xlab("Age group") +
+  ylab("Proportion") +
+  scale_fill_hue(name = "Gender") +
+  theme
+
+hivprevplot
+  
+
+```
+
+
+###### **Figure 7. HIV prevalence by sex and age in randomly selected imputed dataset**
 
 <br>
 
@@ -1023,7 +1065,7 @@ bwhivfig <- bwdf %>%
 bwhivfig
 ```
 
-###### **Figure 7. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
+###### **Figure 8. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
 
 <br>
 
@@ -1042,7 +1084,7 @@ bwagefig <- bwdf %>%
 bwagefig
 ```
 
-###### **Figure 8. Distribution of bridge widths for each imputed dataset, by sex and agegroup.**
+###### **Figure 9. Distribution of bridge widths for each imputed dataset, by sex and agegroup.**
 
 <br>
 
@@ -1077,7 +1119,7 @@ bwhivfig
 ```
 
 
-###### **Figure 9. Model coefficients for relationship between HIV and bridgewidth.**
+###### **Figure 10. Model coefficients for relationship between HIV and bridgewidth.**
 
 <br>
 
@@ -1099,7 +1141,7 @@ bwagefig
 
 ```
 
-###### **Figure 10. Expected bridge widths for different values of age (smooth term), by gender.**
+###### **Figure 11. Expected bridge widths for different values of age (smooth term), by gender.**
 
 <br>
 

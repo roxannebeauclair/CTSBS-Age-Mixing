@@ -354,21 +354,21 @@ bvar <- function(model) {
     # Must take an merMod  object
     
     bsd <- as.data.frame(VarCorr(model))[1, 5] %>%
-      round(2)
+      round(3)
     
     # The tryCatch function is used so that the function will keep going even 
     # if there is an error for one of the models. If there is an error, it
     # will just make the value missing
     lwrbsd <- tryCatch({
       confint(model)[1, 1] %>%
-        round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
     
     uprbsd <- tryCatch({
       confint(model)[1, 2] %>%
-        round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
@@ -379,18 +379,18 @@ bvar <- function(model) {
     
     bsd <- VarCorr(model)[1, 2] %>%
       as.numeric() %>%
-      round(2)
+      round(3)
     
     lwrbsd <- tryCatch({
       intervals(model)$reStruct$id$lower  %>%
-        round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
     
     uprbsd <- tryCatch({
       intervals(model)$reStruct$id$upper  %>%
-        round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
@@ -400,7 +400,8 @@ bvar <- function(model) {
 }
 
 
-# Extracts the within subject SD from agemixing pattern model
+# Extracts the within subject SD and power coefficient
+# from agemixing pattern model
 # Also upper and lower CI limits
 
 wvar <- function(model) {
@@ -412,58 +413,24 @@ wvar <- function(model) {
     # Takes merMod model object
     
     wsd <- as.data.frame(VarCorr(model))[2, 5] %>%
-      round(2)
+      round(3)
     
     # The tryCatch function is used so that the function will keep going even 
     # if there is an error for one of the models. If there is an error, it
     # will just make the value missing
     lwrwsd <- tryCatch({
       confint(model)[2, 1] %>%
-        round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
     
     uprwsd <- tryCatch({
       confint(model)[2, 2] %>%
-        round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
-    
-  } else {
-    
-    # Must take an nlme model object
-    
-    wsd <- VarCorr(model)[2, 2] %>%
-      as.numeric() %>%
-      round(2)
-    
-    lwrwsd <- tryCatch({
-      (intervals(model)$sigma[1])  %>%
-        round(2)
-    }, error = function(e) {
-      print(paste("My error: ", e)); NA
-    })
-    
-    uprwsd <- tryCatch({
-      (intervals(model)$sigma[3])  %>%
-        round(2)
-    }, error = function(e) {
-      print(paste("My error: ", e)); NA
-    })
-  }
-    
-  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
-}
-
-
-# Extract the power coefficient
-power <- function(model) {
-  
-  # Takes model object and outputs tidy dataframe
-  
-  if(class(model)[1] == "lmerMod") {
     
     p <- NA
     lwrpsd <- NA
@@ -471,10 +438,30 @@ power <- function(model) {
     
   } else {
     
+    # Must take an nlme model object
+    
+    wsd <- VarCorr(model)[2, 2] %>%
+      as.numeric() %>%
+      round(3)
+    
+    lwrwsd <- tryCatch({
+      (intervals(model)$sigma[1])  %>%
+        round(3)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+    
+    uprwsd <- tryCatch({
+      (intervals(model)$sigma[3])  %>%
+        round(3)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
+  
     # Power coefficient
     p <- tryCatch({
       (attributes(model$apVar)$Pars["varStruct.power"])  %>%
-        round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
@@ -482,7 +469,7 @@ power <- function(model) {
     # Lower interval
     lwrpsd <- tryCatch({
       (intervals(model)$varStruct[, 1]) %>%
-         round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
@@ -490,15 +477,16 @@ power <- function(model) {
     # Upper interval
     uprpsd <- tryCatch({
       (intervals(model)$varStruct[, 3]) %>%
-        round(2)
+        round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
   }
-  
-  data.frame(power = p, lwrpow = lwrpsd, uprpow = uprpsd)
-  
+
+  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd,
+             p = p, lwrpsd = lwrpsd, uprpsd = uprpsd)
 }
+
 
 # Creating a  negative binomial model for hiv status as outcome
 # Calculates RR
@@ -794,4 +782,4 @@ bootstrap_clus <- function(data, n, id = ".id") {
   
   df
   
-}
+} 

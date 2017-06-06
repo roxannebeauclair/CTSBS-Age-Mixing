@@ -73,54 +73,53 @@ options(show.signif.stars = F)
 
 
 ```{r df_description, include = FALSE}
-# How many exclusions due to sexuality
+# How many participants
 df1 <- df %>%
+  distinct(id, .keep_all = TRUE)
+
+# How many exclusions due to sexuality
+df2 <- df1 %>%
+  distinct(id, .keep_all = TRUE) %>%
   filter(sexorientation != "both" | is.na(sexorientation)) %>%
   filter((sex == "Male" & sexorientation == "Women") |
            ((sex == "Female" & sexorientation == "Men")) |
               (is.na(sex))) 
 
-n_sexuality <- nrow(df) - nrow(df1)
+n_sexuality <- nrow(df1) - nrow(df2)
 
 # How many exclusions due to race
-df2 <- df1 %>%
+df3 <- df2 %>%
   filter(race == "Coloured" | 
            race == "Black" |
            is.na(race)) 
 
-n_race <- nrow(df1) - nrow(df2)
+n_race <- nrow(df2) - nrow(df3)
 
 # How many exclusions due to no parter reported
-df3 <- df2 %>%
+df4 <- df3 %>%
   filter(partner != 0) 
 
-n_nopart <- nrow(df2) - nrow(df3)
-
-# How many relationships left
-rels_left <- nrow(df3)
+n_nopart <- nrow(df3) - nrow(df4)
 
 # How many participants left
-parts_left <- df3 %>%
-  distinct(id) %>%
+parts_left <- nrow(df4)
+
+# How many relationships left
+rels_left <- dfimp %>%
+  filter(.imp == 0) %>%
   nrow()
 
 imp <- max(as.integer(dfimp$.imp)) - 1
 
-# How many relationships started in the last year
-df4 <- df3 %>%
-  mutate(start = as.factor(ifelse(!is.na(start), "Last year", "before last year"))) %>%
-  filter(start == "Last year")
-
-rels_last_year <- nrow(df4)
 
 # How many participants had more than 1 relationship
-df5 <- partdfimp %>%
-  filter(.imp == 23) %>%
-  filter(relcount > 1)
+parts_many_partner <- partdfimp %>%
+  filter(.imp == 0) %>%
+  filter(relcount > 1) %>%
+  nrow()
 
-parts_many_partner <- nrow(df5)
 
-rm(df, df1, df2, df3, df4, df5)
+rm(df, df1, df2, df3, df4)
 
 ```
 
@@ -227,6 +226,8 @@ intdifci <- difintsum %>%
 ```
 
 ```{r wvar_setup, include = FALSE, warning = FALSE}
+# WSVar(age) = WSVar(baseline) * (1+age_above_baseline)^PowerCoeff
+# age_above_baseline = 40 - 15, if doing for 40 year olds
 
 # Unnest tidy summary for data on within individual variance
 modwvar <- tidysumamp %>%
@@ -237,7 +238,9 @@ modwvar
 wvardif <- modwvar %>%
   select(-lwrwsd, -uprwsd) %>%
   unite(subpop, sex, hiv) %>%
-  spread(subpop, wsd) 
+  mutate(wsd40 = wsd * (26 ^ p)) %>%
+  gather(comps, c(wsd, p, wsd40)) %>%
+  spread(subpop, comps) 
 
 wvardif
 

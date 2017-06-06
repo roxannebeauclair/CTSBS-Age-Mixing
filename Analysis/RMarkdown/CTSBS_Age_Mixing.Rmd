@@ -841,10 +841,7 @@ bwdf <- partdfimp %>%
            relcount > 1) 
 ```
 
-
 <br>
-
-
 
 ```{r bw_hiv_density_fig, echo = FALSE, warning = FALSE}
 
@@ -861,25 +858,6 @@ bwhivfig
 ```
 
 ###### **Figure 8. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
-
-<br>
-
-
-```{r bw_age_density_fig, echo = FALSE, warning = FALSE}
-
-# Check spread of bridgwidths for each grouped dataset
-bwagefig <- bwdf %>%
-  ggplot(aes(x = bridgewidth, group = .imp)) +
-  geom_density(adjust = 2) +
-  facet_grid(agegroup ~ sex) +
-  xlab("bridgewidth") +
-  ylab("Density") +
-  theme
-
-bwagefig
-```
-
-###### **Figure 9. Distribution of bridge widths for each imputed dataset, by sex and agegroup.**
 
 <br>
 

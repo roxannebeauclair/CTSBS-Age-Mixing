@@ -324,22 +324,41 @@ OrdPred <- function(mod, n, modAns){
 # Creating a linear mixed model with random intercept for person
 # This is specifically for age-mixing patterns
 
-ampmodel <- function(df, s, h) {
- 
-  if(s == "Male" | h == "Negative") {
-    
-    lme(agep ~ age0, 
-        data = df, 
-        random = ~1 | id,
-        weights = varPower(value = 0.5, form = ~age0 + 1),
-        method = "REML")
-    
-  } else {
-    
-    lmer(agep ~ age0 + (1 | id),
-         data = df,
-         REML = TRUE)
-  }
+# ampmodel <- function(df, s, h) {
+#  
+#   if(s == "Male" | h == "Negative") {
+#     
+#     lme(agep ~ age0, 
+#         data = df, 
+#         random = ~1 | id,
+#         weights = varPower(value = 0.5, form = ~age0 + 1),
+#         method = "REML")
+#     
+#   } else {
+#     
+#     lmer(agep ~ age0 + (1 | id),
+#          data = df,
+#          REML = TRUE)
+#   }
+# }
+
+ampmodel <- function(df) {
+  
+  df2 <- df %>%
+    arrange(agegroup)
+  
+  df3 <- df2 %>%
+    distinct(id) %>%
+    mutate(id2 = row_number())
+  
+  df4 <- left_join(df2, df3, by = "id")
+  
+  lme(agep ~ age0,
+      data = df4,
+      random = ~ 1 | id2,
+      weights = varIdent(form = ~1|agegroup),
+      method = "REML")
+  
 }
 
 # Extracts the between subject SD from agemixing pattern model
@@ -399,10 +418,116 @@ bvar <- function(model) {
   data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
 }
 
+# bvar <- function(model) {
+#   # Must take an nlme model object
+#   
+#   bsd <- VarCorr(model)[1, 2] %>%
+#     as.numeric() %>%
+#     round(3)
+#   
+#   lwrbsd <- tryCatch({
+#     intervals(model)$reStruct$id$lower  %>%
+#       round(3)
+#   }, error = function(e) {
+#     print(paste("My error: ", e)); NA
+#   })
+#   
+#   uprbsd <- tryCatch({
+#     intervals(model)$reStruct$id$upper  %>%
+#       round(3)
+#   }, error = function(e) {
+#     print(paste("My error: ", e)); NA
+#   })
+#   
+#   data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
+# }
 
 # Extracts the within subject SD and power coefficient
 # from agemixing pattern model
 # Also upper and lower CI limits
+
+# wvar <- function(model) {
+#   
+#   # Outputs a df with within-subject variance, upr & lwr limits
+#   
+#   if(class(model)[1] == "lmerMod") {
+#     
+#     # Takes merMod model object
+#     
+#     wsd <- as.data.frame(VarCorr(model))[2, 5] %>%
+#       round(3)
+#     
+#     # The tryCatch function is used so that the function will keep going even 
+#     # if there is an error for one of the models. If there is an error, it
+#     # will just make the value missing
+#     lwrwsd <- tryCatch({
+#       confint(model)[2, 1] %>%
+#         round(3)
+#     }, error = function(e) {
+#       print(paste("My error: ", e)); NA
+#     })
+#     
+#     uprwsd <- tryCatch({
+#       confint(model)[2, 2] %>%
+#         round(3)
+#     }, error = function(e) {
+#       print(paste("My error: ", e)); NA
+#     })
+#     
+#     p <- NA
+#     lwrpsd <- NA
+#     uprpsd <- NA
+#     
+#   } else {
+#     
+#     # Must take an nlme model object
+#     
+#     wsd <- VarCorr(model)[2, 2] %>%
+#       as.numeric() %>%
+#       round(3)
+#     
+#     lwrwsd <- tryCatch({
+#       (intervals(model)$sigma[1])  %>%
+#         round(3)
+#     }, error = function(e) {
+#       print(paste("My error: ", e)); NA
+#     })
+#     
+#     uprwsd <- tryCatch({
+#       (intervals(model)$sigma[3])  %>%
+#         round(3)
+#     }, error = function(e) {
+#       print(paste("My error: ", e)); NA
+#     })
+#   
+#     # Power coefficient
+#     p <- tryCatch({
+#       (attributes(model$apVar)$Pars["varStruct.power"])  %>%
+#         round(3)
+#     }, error = function(e) {
+#       print(paste("My error: ", e)); NA
+#     })
+#     
+#     # Lower interval
+#     lwrpsd <- tryCatch({
+#       (intervals(model)$varStruct[, 1]) %>%
+#         round(3)
+#     }, error = function(e) {
+#       print(paste("My error: ", e)); NA
+#     })
+#     
+#     # Upper interval
+#     uprpsd <- tryCatch({
+#       (intervals(model)$varStruct[, 3]) %>%
+#         round(3)
+#     }, error = function(e) {
+#       print(paste("My error: ", e)); NA
+#     })
+#   }
+# 
+#   data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd,
+#              p = p, lwrpsd = lwrpsd, uprpsd = uprpsd)
+# }
 
 wvar <- function(model) {
   
@@ -457,17 +582,17 @@ wvar <- function(model) {
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
-  
-    # Power coefficient
-    p <- tryCatch({
-      (attributes(model$apVar)$Pars["varStruct.power"])  %>%
+    
+    # Variance factor from varIdent
+    vf <- tryCatch({
+      intervals(model)$varStruct[, 2] %>%
         round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
     
     # Lower interval
-    lwrpsd <- tryCatch({
+    lwrvf <- tryCatch({
       (intervals(model)$varStruct[, 1]) %>%
         round(3)
     }, error = function(e) {
@@ -475,16 +600,25 @@ wvar <- function(model) {
     })
     
     # Upper interval
-    uprpsd <- tryCatch({
+    uprvf <- tryCatch({
       (intervals(model)$varStruct[, 3]) %>%
         round(3)
     }, error = function(e) {
       print(paste("My error: ", e)); NA
     })
+    
+    # wsd for old age groups
+    wsdold <- tryCatch({
+      (wsd * vf) %>%
+        round(3)
+    }, error = function(e) {
+      print(paste("My error: ", e)); NA
+    })
   }
-
+  
   data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd,
-             p = p, lwrpsd = lwrpsd, uprpsd = uprpsd)
+             vf = vf, lwrvf = lwrvf, uprvf = uprvf, 
+             wsdold = wsdold)
 }
 
 

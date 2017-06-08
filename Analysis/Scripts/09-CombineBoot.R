@@ -22,6 +22,8 @@ bootdata <- paste0(cdata, "/ctsbs_boot_test_data.rda")
 # ==================================
 # Load datasets and combine datasets
 # ==================================
+
+##initiate the big fat master dataset
 ampdf <- tibble(.imp = factor(),
                             sex = factor(),
                             hiv = factor(),
@@ -29,7 +31,7 @@ ampdf <- tibble(.imp = factor(),
                             model = list(),
                             modelsum = list(),
                             bvar = list(),
-                            wvar = list()) ##initiate the big fat master dataset
+                            wvar = list()) 
 
 for(i in 1:50){
   path <- bdata

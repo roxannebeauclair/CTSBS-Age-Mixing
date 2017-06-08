@@ -17,7 +17,7 @@ wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSbS Age Mixin
 cdata <- paste0(wd, "/Data/Cleaned")
 bdata <- paste0(cdata, "/Bootstrapped/")
 
-bootdata <- paste0(cdata, "/ctsbs_boot_amp_data.rda")
+bootdata <- paste0(cdata, "/ctsbs_boot_test_data.rda")
 
 # ==================================
 # Load datasets and combine datasets
@@ -34,8 +34,13 @@ ampdf <- tibble(.imp = factor(),
 for(i in 1:50){
   path <- bdata
   data.name <- paste0(path, "ctsbs_boot_amp_data_", i, ".rda")
-  load(data.name) # loading the tidysumamp object into the environment
-  tidysumamp.master <- bind_rows(ampdf, tidysumamp)
+  
+  if(file.exists(data.name)) {
+    
+    load(data.name) # loading the tidysumamp object into the environment
+    ampdf <- bind_rows(ampdf, tidysumamp)
+    
+  }
 }
 
 # ===========

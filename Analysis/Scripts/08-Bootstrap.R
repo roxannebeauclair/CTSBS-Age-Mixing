@@ -7,6 +7,7 @@
 # Description: This script takes the imputed datasets and 
 # bootstraps more datasets, then runs the amp models on them
 
+
 wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSbS Age Mixing/Analysis"
 cdata <- paste0(wd, "/Data/Cleaned")
 
@@ -30,7 +31,6 @@ InstallLoad("magrittr", "MASS", "tidyverse",
 # =============
 load(imputedata)
 
-
 # =========================
 # Run bootstrap then models
 # =========================
@@ -42,7 +42,6 @@ load(imputedata)
 # 4. Extract model components
 # 5. Output tidy df
 
-start.time <- Sys.time()
 set.seed(4387)
 tidysumamp <- dfimp %>%
   filter(.imp != 0)%>%
@@ -56,12 +55,11 @@ tidysumamp <- dfimp %>%
                       ampmodel), #ampmodel is function for nlme amp model
          modelsum = map(model, ~tidy(.x, effects = "fixed")), # Obtaining all the b's and intercepts from the models
          bvar = map(model, bvar), # Obtaining between subject variance using function bvar
-         wvar = map(model, wvar), # Obtaining within subject variance using function wvar
-         power = map(model, power))
+         wvar = map(model, wvar)) %>% # Obtaining within subject variance using function wvar
+  select(-strap)
 
-stop.time <- Sys.time()
-time <- stop.time - start.time
-time
+
+
 
 # ===================
 # Save tidy dataframe

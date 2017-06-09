@@ -226,13 +226,13 @@ intdifci <- difintsum %>%
 ```
 
 ```{r wvar_setup, include = FALSE, warning = FALSE}
-# WSVar(age) = WSVar(baseline) * (1+age_above_baseline)^PowerCoeff
+# WSSD(age) = sqrt( (WSSD(baseline) ^ 2) * (1+age_above_baseline)^PowerCoeff)
 # age_above_baseline = 40 - 15, if doing for 40 year olds
 
 # Unnest tidy summary for data on within individual variance
 modwvar <- ampdf %>%
   unnest(wvar, .drop = TRUE) %>%
-  mutate(wsd40 = wsd * (26 ^ p)) 
+  mutate(wsd40 = sqrt(wsd ^ 2 * (26 ^ p))) 
 
 modwvar
 
@@ -253,9 +253,7 @@ wvardif
 
 difwvarsum <- wvardif %>%
   mutate(gendifneg = Female_Negative_wsd - Male_Negative_wsd, # Ha: Female wvar larger than males
-         gendifpos = Female_Positive_wsd - Male_Positive_wsd, # Ha; Female wvar larger than males
          hivdifmale = Male_Positive_wsd - Male_Negative_wsd, # Ha: Pos wvar larger than neg
-         hivdiffemale = Female_Positive_wsd - Female_Negative_wsd, # Ha: Pos wvar larger than neg
          gendifneg40 = Female_Negative_wsd40 - Male_Negative_wsd40,
          hivdifmale40 = Male_Positive_wsd40 - Male_Negative_wsd40) 
 
@@ -277,21 +275,15 @@ wsdci
 
 wvardifci <- difwvarsum %>%
   summarise(meangendifneg = mean(gendifneg),
-            meangendifpos = mean(gendifpos),
             meanhivdifmale = mean(hivdifmale),
-            meanhivdiffemale = mean(hivdiffemale),
             meangendifneg40 = mean(gendifneg40),
             meanhivdifmale40 = mean(hivdifmale40),
             lwrgendifneg = quantile(gendifneg, alpha / 2),
-            lwrgendifpos = quantile(gendifpos, alpha / 2),
             lwrhivdifmale = quantile(hivdifmale, alpha / 2),
-            lwrhivdiffemale = quantile(hivdiffemale, alpha / 2),
             lwrgendifneg40 = quantile(gendifneg40, alpha / 2),
             lwrhivdifmale40 = quantile(hivdifmale40, alpha / 2),
             uprgendifneg = quantile(gendifneg, 1 - alpha / 2),
-            uprgendifpos = quantile(gendifpos, 1 - alpha / 2),
             uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2),
-            uprhivdiffemale = quantile(hivdiffemale, 1 - alpha / 2),
             uprgendifneg40 = quantile(gendifneg40, 1 - alpha / 2),
             uprhivdifmale40 = quantile(hivdifmale40, 1 - alpha / 2)) %>%
   mutate_all(funs(round(., 2)))
@@ -527,10 +519,10 @@ wvarplot
 
 The average difference between: 
 
-* Male and female wsd in the HIV negative population was `r wvardifci$meangendifneg` (95% CI: `r wvardifci$lwrgendifneg` - `r wvardifci$uprgendifneg`)
-* Male and female wsd in the HIV positive population was `r wvardifci$meangendifpos` (95% CI: `r wvardifci$lwrgendifpos` - `r wvardifci$uprgendifpos`)
-* HIV positive and negative wsd in the male population was `r wvardifci$meanhivdifmale` (95% CI: `r wvardifci$lwrhivdifmale` - `r wvardifci$uprhivdifmale`)
-* HIV positive and negative wsd in the female population was `r wvardifci$meanhivdiffemale` (95% CI: `r wvardifci$lwrhivdiffemale` - `r wvardifci$uprhivdiffemale`)
+* Male and female wsd in the HIV negative population of 15 year olds was `r wvardifci$meangendifneg` (95% CI: `r wvardifci$lwrgendifneg` - `r wvardifci$uprgendifneg`)
+* Male and female wsd in the HIV negative population of 40 year olds was `r wvardifci$meangendifneg40` (95% CI: `r wvardifci$lwrgendifneg40` - `r wvardifci$uprgendifneg40`)
+* HIV positive and negative wsd in the male population of 15 year olds was `r wvardifci$meanhivdifmale` (95% CI: `r wvardifci$lwrhivdifmale` - `r wvardifci$uprhivdifmale`)
+* HIV positive and negative wsd in the male population of 40 year olds was `r wvardifci$meanhivdifmale40` (95% CI: `r wvardifci$lwrhivdifmale40` - `r wvardifci$uprhivdifmale40`)
 
 <br>
 

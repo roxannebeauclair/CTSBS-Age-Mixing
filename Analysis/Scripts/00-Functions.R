@@ -342,23 +342,30 @@ OrdPred <- function(mod, n, modAns){
 #   }
 # }
 
+# ampmodel <- function(df) {
+#   
+#   df2 <- df %>%
+#     arrange(agegroup)
+#   
+#   df3 <- df2 %>%
+#     distinct(id) %>%
+#     mutate(id2 = row_number())
+#   
+#   df4 <- left_join(df2, df3, by = "id")
+#   
+#   lme(agep ~ age0,
+#       data = df4,
+#       random = ~ 1 | id2,
+#       weights = varIdent(form = ~1|agegroup),
+#       method = "REML")
+#   
+# }
+
 ampmodel <- function(df) {
   
-  df2 <- df %>%
-    arrange(agegroup)
-  
-  df3 <- df2 %>%
-    distinct(id) %>%
-    mutate(id2 = row_number())
-  
-  df4 <- left_join(df2, df3, by = "id")
-  
-  lme(agep ~ age0,
-      data = df4,
-      random = ~ 1 | id2,
-      weights = varIdent(form = ~1|agegroup),
-      method = "REML")
-  
+  lmer(agep ~ age0 + (1 | id),
+       data = df,
+       REML = TRUE)  
 }
 
 # Extracts the between subject SD from agemixing pattern model
@@ -418,29 +425,6 @@ bvar <- function(model) {
   data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
 }
 
-# bvar <- function(model) {
-#   # Must take an nlme model object
-#   
-#   bsd <- VarCorr(model)[1, 2] %>%
-#     as.numeric() %>%
-#     round(3)
-#   
-#   lwrbsd <- tryCatch({
-#     intervals(model)$reStruct$id$lower  %>%
-#       round(3)
-#   }, error = function(e) {
-#     print(paste("My error: ", e)); NA
-#   })
-#   
-#   uprbsd <- tryCatch({
-#     intervals(model)$reStruct$id$upper  %>%
-#       round(3)
-#   }, error = function(e) {
-#     print(paste("My error: ", e)); NA
-#   })
-#   
-#   data.frame(bsd = bsd, lwrbsd = lwrbsd, uprbsd = uprbsd)
-# }
 
 # Extracts the within subject SD and power coefficient
 # from agemixing pattern model
@@ -557,10 +541,6 @@ wvar <- function(model) {
       print(paste("My error: ", e)); NA
     })
     
-    p <- NA
-    lwrpsd <- NA
-    uprpsd <- NA
-    
   } else {
     
     # Must take an nlme model object
@@ -616,9 +596,7 @@ wvar <- function(model) {
     })
   }
   
-  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd,
-             vf = vf, lwrvf = lwrvf, uprvf = uprvf, 
-             wsdold = wsdold)
+  data.frame(wsd = wsd, lwrwsd = lwrwsd, uprwsd = uprwsd)
 }
 
 

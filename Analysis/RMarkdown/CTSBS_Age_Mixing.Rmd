@@ -15,7 +15,7 @@ cdata <- paste0(wd, "/Data/Cleaned")
 concurdata <- paste0(cdata, "/ctsbs_concur_added_data.rda")
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
 imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
-bootdata <- paste0(cdata, "/ctsbs_boot_amp_data.rda")
+bootdata <- paste0(cdata, "/ctsbs_boot_test_data.rda")
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
 
@@ -138,7 +138,7 @@ Before conducting imputations, I excluded participants who said their sexual pre
 ```{r slope_int_setup, include = FALSE, warning = FALSE}
 # Unnest tidy summary for data on slope and intercept
 # of all the models
-modslopeint <- tidysumamp %>%
+modslopeint <- ampdf %>%
   unnest(modelsum, .drop = TRUE)
 
 modslopeint
@@ -230,17 +230,18 @@ intdifci <- difintsum %>%
 # age_above_baseline = 40 - 15, if doing for 40 year olds
 
 # Unnest tidy summary for data on within individual variance
-modwvar <- tidysumamp %>%
-  unnest(wvar, .drop = TRUE)
+modwvar <- ampdf %>%
+  unnest(wvar, .drop = TRUE) %>%
+  mutate(wsd40 = wsd * (26 ^ p)) 
 
 modwvar
 
 wvardif <- modwvar %>%
-  select(-lwrwsd, -uprwsd) %>%
+  select(-lwrwsd, -uprwsd, -lwrpsd, -uprpsd) %>%
   unite(subpop, sex, hiv) %>%
-  mutate(wsd40 = wsd * (26 ^ p)) %>%
-  gather(comps, c(wsd, p, wsd40)) %>%
-  spread(subpop, comps) 
+  gather(items, value, wsd, p, wsd40) %>%
+  unite(subpopitem, subpop, items) %>%
+  spread(subpopitem, value) 
 
 wvardif
 
@@ -251,10 +252,12 @@ wvardif
 # 4. Pos vs Neg in female population
 
 difwvarsum <- wvardif %>%
-  mutate(gendifneg = Female_Negative - Male_Negative, # Ha: Female wvar larger than males
-         gendifpos = Female_Positive - Male_Positive, # Ha; Female wvar larger than males
-         hivdifmale = Male_Positive - Male_Negative, # Ha: Pos wvar larger than neg
-         hivdiffemale = Female_Positive - Female_Negative) # Ha: Pos wvar larger than neg
+  mutate(gendifneg = Female_Negative_wsd - Male_Negative_wsd, # Ha: Female wvar larger than males
+         gendifpos = Female_Positive_wsd - Male_Positive_wsd, # Ha; Female wvar larger than males
+         hivdifmale = Male_Positive_wsd - Male_Negative_wsd, # Ha: Pos wvar larger than neg
+         hivdiffemale = Female_Positive_wsd - Female_Negative_wsd, # Ha: Pos wvar larger than neg
+         gendifneg40 = Female_Negative_wsd40 - Male_Negative_wsd40,
+         hivdifmale40 = Male_Positive_wsd40 - Male_Negative_wsd40) 
 
 difwvarsum
 
@@ -265,7 +268,10 @@ wsdci <- modwvar %>%
   group_by(sex, hiv) %>%
   summarise(mean = mean(wsd),
             lwr = quantile(wsd, alpha / 2),
-            upr = quantile(wsd, 1- alpha / 2))
+            upr = quantile(wsd, 1 - alpha / 2),
+            mean40 = mean(wsd40, na.rm = T),
+            lwr40 = quantile(wsd40, alpha / 2, na.rm = T),
+            upr40 = quantile(wsd40, 1 - alpha /2, na.rm = T))
 
 wsdci
 
@@ -274,14 +280,20 @@ wvardifci <- difwvarsum %>%
             meangendifpos = mean(gendifpos),
             meanhivdifmale = mean(hivdifmale),
             meanhivdiffemale = mean(hivdiffemale),
+            meangendifneg40 = mean(gendifneg40),
+            meanhivdifmale40 = mean(hivdifmale40),
             lwrgendifneg = quantile(gendifneg, alpha / 2),
             lwrgendifpos = quantile(gendifpos, alpha / 2),
             lwrhivdifmale = quantile(hivdifmale, alpha / 2),
             lwrhivdiffemale = quantile(hivdiffemale, alpha / 2),
+            lwrgendifneg40 = quantile(gendifneg40, alpha / 2),
+            lwrhivdifmale40 = quantile(hivdifmale40, alpha / 2),
             uprgendifneg = quantile(gendifneg, 1 - alpha / 2),
             uprgendifpos = quantile(gendifpos, 1 - alpha / 2),
             uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2),
-            uprhivdiffemale = quantile(hivdiffemale, 1 - alpha / 2)) %>%
+            uprhivdiffemale = quantile(hivdiffemale, 1 - alpha / 2),
+            uprgendifneg40 = quantile(gendifneg40, 1 - alpha / 2),
+            uprhivdifmale40 = quantile(hivdifmale40, 1 - alpha / 2)) %>%
   mutate_all(funs(round(., 2)))
 
 
@@ -290,7 +302,7 @@ wvardifci <- difwvarsum %>%
 ```{r bvar_setup, include = FALSE, warning = FALSE}
 
 # Unnest tidy summary for data on between individual variance
-modbvar <- tidysumamp %>%
+modbvar <- ampdf %>%
   unnest(bvar, .drop = TRUE)
 
 modbvar
@@ -345,16 +357,11 @@ bvardifci <- difbvarsum %>%
 
 ```{r power_setup, include = FALSE, warning = FALSE}
 
-# Unnest tidy summary for (lme) data on power coefficient
-modpower <- tidysumamp %>%
-  unnest(power, .drop = TRUE)
 
-modpower
-
-powerdif <- modpower %>%
-  select(-lwrpow, -uprpow) %>%
+powerdif <- modwvar %>%
+  select(.imp, sex, hiv, .id, p) %>%
   unite(subpop, sex, hiv) %>%
-  spread(subpop, power) 
+  spread(subpop, p) 
 
 powerdif
 
@@ -373,13 +380,15 @@ difpowersum
 # using percentile method
 alpha = 0.05
 
-powerci <- modpower %>%
+powerci <- modwvar %>%
+  mutate(sex = as.factor(sex),
+         hiv = as.factor(hiv)) %>%
   filter(sex == "Male" |
            hiv == "Negative") %>%
   group_by(sex, hiv) %>%
-  summarise(mean = mean(power, na.rm = T),
-            lwr = quantile(power, alpha / 2, na.rm = T),
-            upr = quantile(power, 1- alpha / 2, na.rm = T))
+  summarise(mean = mean(p, na.rm = T),
+            lwr = quantile(p, alpha / 2, na.rm = T),
+            upr = quantile(p, 1- alpha / 2, na.rm = T))
 
 powerci
 
@@ -485,15 +494,25 @@ The average difference between:
 wvarplot <- modwvar %>%
   ggplot(aes(x = wsd)) +
   geom_density(alpha = 0.2, fill = "blue") +
+  geom_density(aes(x = wsd40), alpha = 0.2, fill = "yellow") +
   geom_vline(aes(xintercept = mean), 
              data = wsdci,
              linetype = "dashed") +
+  geom_vline(aes(xintercept = mean40),
+             data = wsdci,
+             linetype = "dotted") +
   geom_vline(aes(xintercept = lwr), 
              data = wsdci,
              linetype = "dashed") +
+  geom_vline(aes(xintercept = lwr40),
+             data = wsdci,
+             linetype = "dotted") +
   geom_vline(aes(xintercept = upr), 
              data = wsdci,
              linetype = "dashed") +
+  geom_vline(aes(xintercept = upr40),
+             data = wsdci,
+             linetype = "dotted") +
   scale_x_continuous(limits = c(0, 65)) +
   facet_grid(hiv ~ sex) +
   xlab("Within-subject Standard Deviation") +
@@ -556,8 +575,8 @@ The average difference between:
 # The formula to calculate the weights for variance is |v|^(2*t)
 # I belive t is the power coefficient
 
-powplot <- modpower %>%
-  ggplot(aes(x = power)) +
+powplot <- modwvar %>%
+  ggplot(aes(x = p)) +
   geom_density(alpha = 0.2, fill = "blue") +
   geom_vline(aes(xintercept = mean), 
              data = powerci,
@@ -586,6 +605,11 @@ The average difference between:
 * HIV positive and negative power coefficient in the male population was `r powerdifci$meanhivdifmale` (95% CI: `r powerdifci$lwrhivdifmale` - `r powerdifci$uprhivdifmale`)
 
 ```{r hiv_prev, echo = FALSE, warning = FALSE}
+
+imp <- max(as.integer(dfimp$.imp)) - 1
+set.seed(209)
+n <- sample(1:imp, 1)
+
 hivprev <- partdfimp %>%
   filter(.imp == n) %>%
   mutate(agegroup = cut(age,

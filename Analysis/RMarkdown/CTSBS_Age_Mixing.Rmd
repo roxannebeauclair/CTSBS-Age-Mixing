@@ -15,7 +15,7 @@ cdata <- paste0(wd, "/Data/Cleaned")
 concurdata <- paste0(cdata, "/ctsbs_concur_added_data.rda")
 imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
 imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
-bootdata <- paste0(cdata, "/ctsbs_boot_test_data.rda")
+bootdata <- paste0(cdata, "/ctsbs_boot_rbind_data.rda")
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
 
@@ -127,10 +127,109 @@ rm(df, df1, df2, df3, df4)
 
 **Research questions:** 
 
-1. Describe the age-mixing pattern in the CTSBS population. Does the age-mixing pattern of HIV positive participants differ from HIV negative participants?
+1. Describe the age-mixing pattern in the CTSBS population. Do age-mixing patterns differ between:
+
+* HIV positive men and women
+* HIV negative men and women
+* HIV positive and HIV negative men
+* HIV positive and HIV negative women 
+
 2. At the individual-level are large ranges in partner ages (bridgewidths) associated with HIV status of a participant?
 
 Before conducting imputations, I excluded participants who said their sexual preferences were for "both" genders or the same gender (n = `r n_sexuality`). I further excluded people who did not identify as black or coloured (n = `r n_race`) and people who did not report partners in the previous year (n = `r n_nopart`). Participants who had missing observations on those characteristics were left in the dataset. This left `r rels_left` relationships reported by `r parts_left` participants. Of the `r parts_left` participants, `r parts_many_partner` reported more than one relationship in the previous year. I imputed `r imp` datasets using the random forest method for continuous and nominal categorical variables and the "polr" method for our ordinal variables. 
+
+<br>
+
+```{r hiv_prev, echo = FALSE, warning = FALSE}
+
+imp <- max(as.integer(dfimp$.imp)) - 1
+set.seed(209)
+n <- sample(1:imp, 1)
+
+hivprev <- partdfimp %>%
+  filter(.imp == n) %>%
+  mutate(agegroup = cut(age,
+                        breaks = c(0, 24, 29, 34, 
+                                   39, 44, 49, 54, 59,
+                                   70),
+                        labels = c("15-24", "25-29", 
+                                   "30-34", "35-39", "40-44", 
+                                   "45-49", "50-54", "55-59", 
+                                   "60+"))) %>%
+  group_by(sex, agegroup, hiv) %>%
+  summarise(n = n()) %>%
+  mutate(total = sum(n),
+         prop = n / total) %>%
+  ungroup() %>%
+  group_by(sex, agegroup, hiv, n, total) %>%          # The binom.test() function is not vectorized,
+  mutate(ll = binom.test(n, total)$conf.int[1],       # and thus, we need to make sure each row is   
+         ul = binom.test(n, total)$conf.int[2])       # treated as an individual data frame
+
+hivprevplot <- hivprev %>%
+  filter(hiv == "Positive") %>%
+  ggplot(aes(x = agegroup, y = prop, fill = sex)) +
+  geom_bar(stat = "identity",
+           position = position_dodge()) +
+  geom_errorbar(aes(ymax = ul, ymin = ll),
+                position = position_dodge(0.9),
+                width = 0.10) +
+  xlab("Age group") +
+  ylab("Proportion") +
+  scale_fill_hue(name = "Gender") +
+  theme
+
+hivprevplot
+  
+
+```
+
+
+###### **Figure 1. HIV prevalence by sex and age in randomly selected imputed dataset**
+
+<br>
+
+
+### **REPORTING MORE THAN ONE PARTNER**
+
+<br>
+
+```{r multiple partners_setup, include = FALSE, warning = FALSE}
+dfmpm <- partdfimp %>% 
+  filter(.imp == n & 
+           sex == "Male") %>%
+  mutate(mp = as.factor(ifelse(relcount > 1, "Multiple", "One"))) 
+
+dfmpw <- partdfimp %>%
+  filter(.imp == n & 
+           sex == "Female") %>%
+  mutate(mp = as.factor(ifelse(relcount > 1, "Multiple", "One"))) 
+
+agem <- GetT1Stat(dfmpm$agegroup, dfmpm$mp)
+agew <- GetT1Stat(dfmpw$agegroup, dfmpw$mp)
+
+hivm <- GetT1Stat(dfmpm$hiv, dfmpm$mp)
+hivw <- GetT1Stat(dfmpw$hiv, dfmpw$mp)
+
+
+tab1 <- list()
+
+tab1[["Age"]] <- cbind(agew, agem)
+tab1[["HIV status"]] <- cbind(hivm, hivw)
+```
+
+```{r multiple_partners_table, echo = FALSE, warning = FALSE}
+mergeDesc(tab1) %>%
+  htmlTable(caption = "<b>Table 1. Proportion of participants reporting more than 1 partner<b/>",
+            tfoot = "Categories are reported in percentages, n (%).",
+            cgroup = c("Women", "Men"), 
+            n.cgroup = c(2, 2), 
+            ctable = TRUE,
+            padding.rgroup = "&nbsp; &nbsp; &nbsp;")
+
+```
+
+
+<br>
 
 ### **AGE-MIXING PATTERN**
 
@@ -146,7 +245,7 @@ modslopeint
 # Create df where the terms are in wide format according
 # to subgroup, so that we can calculate differences
 slopeintdif <- modslopeint %>%
-  select(-std.error, -statistic, -p.value) %>%
+  select(-std.error, -statistic) %>%
   unite(subpop, sex, hiv) %>%
   spread(subpop, estimate) 
 
@@ -226,22 +325,17 @@ intdifci <- difintsum %>%
 ```
 
 ```{r wvar_setup, include = FALSE, warning = FALSE}
-# WSSD(age) = sqrt( (WSSD(baseline) ^ 2) * (1+age_above_baseline)^PowerCoeff)
-# age_above_baseline = 40 - 15, if doing for 40 year olds
 
 # Unnest tidy summary for data on within individual variance
 modwvar <- ampdf %>%
-  unnest(wvar, .drop = TRUE) %>%
-  mutate(wsd40 = sqrt(wsd ^ 2 * (26 ^ p))) 
+  unnest(wvar, .drop = TRUE) 
 
 modwvar
 
 wvardif <- modwvar %>%
-  select(-lwrwsd, -uprwsd, -lwrpsd, -uprpsd) %>%
+  select(-lwrwsd, -uprwsd) %>%
   unite(subpop, sex, hiv) %>%
-  gather(items, value, wsd, p, wsd40) %>%
-  unite(subpopitem, subpop, items) %>%
-  spread(subpopitem, value) 
+  spread(subpop, wsd) 
 
 wvardif
 
@@ -252,11 +346,11 @@ wvardif
 # 4. Pos vs Neg in female population
 
 difwvarsum <- wvardif %>%
-  mutate(gendifneg = Female_Negative_wsd - Male_Negative_wsd, # Ha: Female wvar larger than males
-         hivdifmale = Male_Positive_wsd - Male_Negative_wsd, # Ha: Pos wvar larger than neg
-         gendifneg40 = Female_Negative_wsd40 - Male_Negative_wsd40,
-         hivdifmale40 = Male_Positive_wsd40 - Male_Negative_wsd40) 
-
+  mutate(gendifneg = Male_Negative - Female_Negative, # Ha: Male wvar larger than females
+         gendifpos = Female_Positive - Male_Positive, # Ha: Female wvar larger than males
+         hivdifmale = Male_Positive - Male_Negative, # Ha: Pos wvar larger than neg
+         hivdiffemale = Female_Positive - Female_Negative) # Ha: Pos wvar larger than neg
+         
 difwvarsum
 
 # Now take all of the wvars and calculate CI's using percentile method
@@ -266,26 +360,23 @@ wsdci <- modwvar %>%
   group_by(sex, hiv) %>%
   summarise(mean = mean(wsd),
             lwr = quantile(wsd, alpha / 2),
-            upr = quantile(wsd, 1 - alpha / 2),
-            mean40 = mean(wsd40, na.rm = T),
-            lwr40 = quantile(wsd40, alpha / 2, na.rm = T),
-            upr40 = quantile(wsd40, 1 - alpha /2, na.rm = T))
+            upr = quantile(wsd, 1 - alpha / 2))
 
 wsdci
 
 wvardifci <- difwvarsum %>%
   summarise(meangendifneg = mean(gendifneg),
             meanhivdifmale = mean(hivdifmale),
-            meangendifneg40 = mean(gendifneg40),
-            meanhivdifmale40 = mean(hivdifmale40),
+            meangendifpos = mean(gendifpos),
+            meanhivdiffemale = mean(hivdiffemale),
             lwrgendifneg = quantile(gendifneg, alpha / 2),
             lwrhivdifmale = quantile(hivdifmale, alpha / 2),
-            lwrgendifneg40 = quantile(gendifneg40, alpha / 2),
-            lwrhivdifmale40 = quantile(hivdifmale40, alpha / 2),
+            lwrgendifpos = quantile(gendifpos, alpha / 2),
+            lwrhivdiffemale = quantile(hivdiffemale, alpha / 2),
             uprgendifneg = quantile(gendifneg, 1 - alpha / 2),
             uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2),
-            uprgendifneg40 = quantile(gendifneg40, 1 - alpha / 2),
-            uprhivdifmale40 = quantile(hivdifmale40, 1 - alpha / 2)) %>%
+            uprgendifpos = quantile(gendifpos, 1 - alpha / 2),
+            uprhivdiffemale = quantile(hivdiffemale, 1 - alpha / 2)) %>%
   mutate_all(funs(round(., 2)))
 
 
@@ -347,56 +438,6 @@ bvardifci <- difbvarsum %>%
   mutate_all(funs(round(., 2)))
 ```
 
-```{r power_setup, include = FALSE, warning = FALSE}
-
-
-powerdif <- modwvar %>%
-  select(.imp, sex, hiv, .id, p) %>%
-  unite(subpop, sex, hiv) %>%
-  spread(subpop, p) 
-
-powerdif
-
-# Calculate differences in power coefficient for:
-# 1. Males vs. Females in neg population
-# 2. Pos vs Neg in male population
-
-
-difpowersum <- powerdif %>%
-  mutate(gendifneg = Male_Negative - Female_Negative, # Ha: Male power larger than females
-         hivdifmale = Male_Negative - Male_Positive) # Ha: Neg power larger than pos
-
-difpowersum
-
-# Now take all of the power coefficients and calculate CI's 
-# using percentile method
-alpha = 0.05
-
-powerci <- modwvar %>%
-  mutate(sex = as.factor(sex),
-         hiv = as.factor(hiv)) %>%
-  filter(sex == "Male" |
-           hiv == "Negative") %>%
-  group_by(sex, hiv) %>%
-  summarise(mean = mean(p, na.rm = T),
-            lwr = quantile(p, alpha / 2, na.rm = T),
-            upr = quantile(p, 1- alpha / 2, na.rm = T))
-
-powerci
-
-powerdifci <- difpowersum %>%
-  summarise(meangendifneg = mean(gendifneg, na.rm = T),
-            meanhivdifmale = mean(hivdifmale, na.rm = T),
-            lwrgendifneg = quantile(gendifneg, alpha / 2, na.rm = T),
-            lwrhivdifmale = quantile(hivdifmale, alpha / 2, na.rm = T),
-            uprgendifneg = quantile(gendifneg, 1 - alpha / 2, na.rm = T),
-            uprhivdifmale = quantile(hivdifmale, 1 - alpha / 2, na.rm = T)) %>%
-  mutate_all(funs(round(., 2)))
-
-```
-
-<br>
-
 
 ```{r amp_model_slope_plot, echo = FALSE, warning = FALSE, fig.height = 8}
 
@@ -425,7 +466,7 @@ slopeplot <- modslopeint %>%
 slopeplot
 ```
 
-###### **Figure 2. Distribution of age-mixing model slopes for 50 imputed datasets, each bootstraped 10 times.**
+###### **Figure 2. Distribution of age-mixing model slopes for 50 imputed datasets, each bootstraped 1000 times.**
 
 <br>
 
@@ -467,7 +508,7 @@ interplot <- modslopeint %>%
 interplot
 ```
 
-###### **Figure 3. Distribution of age-mixing model intercepts for 50 imputed datasets, each bootstraped 10 times.**
+###### **Figure 3. Distribution of age-mixing model intercepts for 50 imputed datasets, each bootstraped 1000 times.**
 
 <br>
 
@@ -486,26 +527,15 @@ The average difference between:
 wvarplot <- modwvar %>%
   ggplot(aes(x = wsd)) +
   geom_density(alpha = 0.2, fill = "blue") +
-  geom_density(aes(x = wsd40), alpha = 0.2, fill = "yellow") +
   geom_vline(aes(xintercept = mean), 
              data = wsdci,
              linetype = "dashed") +
-  geom_vline(aes(xintercept = mean40),
-             data = wsdci,
-             linetype = "dotted") +
   geom_vline(aes(xintercept = lwr), 
              data = wsdci,
              linetype = "dashed") +
-  geom_vline(aes(xintercept = lwr40),
-             data = wsdci,
-             linetype = "dotted") +
   geom_vline(aes(xintercept = upr), 
              data = wsdci,
              linetype = "dashed") +
-  geom_vline(aes(xintercept = upr40),
-             data = wsdci,
-             linetype = "dotted") +
-  scale_x_continuous(limits = c(0, 65)) +
   facet_grid(hiv ~ sex) +
   xlab("Within-subject Standard Deviation") +
   theme
@@ -513,16 +543,16 @@ wvarplot <- modwvar %>%
 wvarplot
 ```
 
-###### **Figure 4. Distribution of age-mixing within-subject standard deviations (wsd) for 50 imputed datasets, each bootstraped 10 times.**
+###### **Figure 4. Distribution of age-mixing within-subject standard deviations (wsd) for 50 imputed datasets, each bootstraped 1000 times.**
 
 <br>
 
 The average difference between: 
 
-* Male and female wsd in the HIV negative population of 15 year olds was `r wvardifci$meangendifneg` (95% CI: `r wvardifci$lwrgendifneg` - `r wvardifci$uprgendifneg`)
-* Male and female wsd in the HIV negative population of 40 year olds was `r wvardifci$meangendifneg40` (95% CI: `r wvardifci$lwrgendifneg40` - `r wvardifci$uprgendifneg40`)
-* HIV positive and negative wsd in the male population of 15 year olds was `r wvardifci$meanhivdifmale` (95% CI: `r wvardifci$lwrhivdifmale` - `r wvardifci$uprhivdifmale`)
-* HIV positive and negative wsd in the male population of 40 year olds was `r wvardifci$meanhivdifmale40` (95% CI: `r wvardifci$lwrhivdifmale40` - `r wvardifci$uprhivdifmale40`)
+* Male and female wsd in the HIV negative population: `r wvardifci$meangendifneg` (95% CI: `r wvardifci$lwrgendifneg` - `r wvardifci$uprgendifneg`)
+* Male and female wsd in the HIV positive population: `r wvardifci$meangendifpos` (95% CI: `r wvardifci$lwrgendifpos` - `r wvardifci$uprgendifpos`)
+* HIV positive and negative wsd in the male population: `r wvardifci$meanhivdifmale` (95% CI: `r wvardifci$lwrhivdifmale` - `r wvardifci$uprhivdifmale`)
+* HIV positive and negative wsd in the female population: `r wvardifci$meanhivdiffemale` (95% CI: `r wvardifci$lwrhivdiffemale` - `r wvardifci$uprhivdiffemale`)
 
 <br>
 
@@ -549,7 +579,7 @@ bvarplot <- modbvar %>%
 bvarplot
 ```
 
-###### **Figure 5. Distribution of age-mixing between-subject standard deviations (bsd) for 50 imputed datasets, each bootstraped 10 times.**
+###### **Figure 5. Distribution of age-mixing between-subject standard deviations (bsd) for 50 imputed datasets, each bootstraped 1000 times.**
 
 <br>
 
@@ -562,87 +592,6 @@ The average difference between:
 
 <br>
 
-```{r amp_model_power_plot, echo = FALSE, warning = FALSE, fig.height = 8}
-
-# The formula to calculate the weights for variance is |v|^(2*t)
-# I belive t is the power coefficient
-
-powplot <- modwvar %>%
-  ggplot(aes(x = p)) +
-  geom_density(alpha = 0.2, fill = "blue") +
-  geom_vline(aes(xintercept = mean), 
-             data = powerci,
-             linetype = "dashed") +
-  geom_vline(aes(xintercept = lwr), 
-             data = powerci,
-             linetype = "dashed") +
-  geom_vline(aes(xintercept = upr), 
-             data = powerci,
-             linetype = "dashed") +
-  facet_grid(hiv ~ sex) +
-  xlab("Power coefficient") +
-  theme
-
-powplot
-```
-
-###### **Figure 6. Distribution for power coefficients for 50 imputed datasets, each bootstraped 10 times.**
-
-<br>
-
-The average difference between: 
- 
-* Male and female power coefficient in the HIV negative population was `r powerdifci$meangendifneg` (95% CI: `r powerdifci$lwrgendifneg` - `r powerdifci$uprgendifneg`)
- 
-* HIV positive and negative power coefficient in the male population was `r powerdifci$meanhivdifmale` (95% CI: `r powerdifci$lwrhivdifmale` - `r powerdifci$uprhivdifmale`)
-
-```{r hiv_prev, echo = FALSE, warning = FALSE}
-
-imp <- max(as.integer(dfimp$.imp)) - 1
-set.seed(209)
-n <- sample(1:imp, 1)
-
-hivprev <- partdfimp %>%
-  filter(.imp == n) %>%
-  mutate(agegroup = cut(age,
-                        breaks = c(0, 24, 29, 34, 
-                                   39, 44, 49, 54, 59,
-                                   70),
-                        labels = c("15-24", "25-29", 
-                                   "30-34", "35-39", "40-44", 
-                                   "45-49", "50-54", "55-59", 
-                                   "60+"))) %>%
-  group_by(sex, agegroup, hiv) %>%
-  summarise(n = n()) %>%
-  mutate(total = sum(n),
-         prop = n / total) %>%
-  ungroup() %>%
-  group_by(sex, agegroup, hiv, n, total) %>%          # The binom.test() function is not vectorized,
-  mutate(ll = binom.test(n, total)$conf.int[1],       # and thus, we need to make sure each row is   
-         ul = binom.test(n, total)$conf.int[2])       # treated as an individual data frame
-
-hivprevplot <- hivprev %>%
-  filter(hiv == "Positive") %>%
-  ggplot(aes(x = agegroup, y = prop, fill = sex)) +
-  geom_bar(stat = "identity",
-           position = position_dodge()) +
-  geom_errorbar(aes(ymax = ul, ymin = ll),
-                position = position_dodge(0.9),
-                width = 0.10) +
-  xlab("Age group") +
-  ylab("Proportion") +
-  scale_fill_hue(name = "Gender") +
-  theme
-
-hivprevplot
-  
-
-```
-
-
-###### **Figure 7. HIV prevalence by sex and age in randomly selected imputed dataset**
-
-<br>
 
 ```{r age_hiv_fig, include = FALSE, warning = FALSE, fig.height = 8}
 # Create dataframe that summarizes the proportion of relationships
@@ -666,95 +615,6 @@ hivageplot <- hivbyage %>%
 
 hivageplot
   
-```
-
-<br>
-
-### **REPORTING MORE THAN ONE PARTNER**
-
-<br>
-
-```{r multiple partners_setup, include = FALSE, warning = FALSE}
-dfmpm <- partdfimp %>% 
-  filter(.imp == n & 
-           sex == "Male") %>%
-  mutate(mp = as.factor(ifelse(relcount > 1, "Multiple", "One"))) 
-
-dfmpw <- partdfimp %>%
-  filter(.imp == n & 
-           sex == "Female") %>%
-  mutate(mp = as.factor(ifelse(relcount > 1, "Multiple", "One"))) 
-
-agem <- GetT1Stat(dfmpm$agegroup, dfmpm$mp)
-agew <- GetT1Stat(dfmpw$agegroup, dfmpw$mp)
-
-hivm <- GetT1Stat(dfmpm$hiv, dfmpm$mp)
-hivw <- GetT1Stat(dfmpw$hiv, dfmpw$mp)
-
-
-tab1 <- list()
-
-tab1[["Age"]] <- cbind(agew, agem)
-tab1[["HIV status"]] <- cbind(hivm, hivw)
-```
-
-```{r multiple_partners_table, echo = FALSE, warning = FALSE}
-mergeDesc(tab1) %>%
-  htmlTable(caption = "<b>Table 1. Proportion of participants reporting more than 1 partner<b/>",
-            tfoot = "Categories are reported in percentages, n (%).",
-            cgroup = c("Women", "Men"), 
-            n.cgroup = c(2, 2), 
-            ctable = TRUE,
-            padding.rgroup = "&nbsp; &nbsp; &nbsp;")
-
-```
-
-<br>
-
-### **DO BRIDGEWIDTHS GROW WITH AGE?**
-
-```{r bw_age_sd_setup, include = FALSE}
-bwdfm <- partdfimp %>%
-  filter(.imp == n) %>%
-  filter(sex == "Male" &
-           relcount > 1) %>%
-  select(agegroup, bridgewidth) %>%
-  group_by(agegroup) %>%
-  summarise(n = n(),
-            Median = median(bridgewidth),
-            Q25 = summary(bridgewidth)[[2]],
-            Q75 = summary(bridgewidth)[[5]]) %>%
-  data.frame(row.names = 1) %>%
-  format(nsmall = 1)
-  
-
-bwdfw <- partdfimp %>%
-  filter(.imp == n) %>%
-  filter(sex == "Female" &
-           relcount > 1) %>%
-  select(agegroup, bridgewidth) %>%
-  group_by(agegroup) %>%
-  summarise(n = n(),
-            Median = median(bridgewidth),
-            Q25 = summary(bridgewidth)[[2]],
-            Q75 = summary(bridgewidth)[[5]]) %>%
-  data.frame(row.names = 1) %>%
-  format(nsmall = 1)
-  
-```
-
-```{r bw_age_sd_table, echo = FALSE}
-
-htmlTable(cbind(bwdfm, bwdfw),
-          caption = "<b>Table 2. Median and IQR for bridgewidth by age and gender in randomly selected imputed dataset<b/>",
-          ctable = TRUE,
-          tfoot = txtMergeLines("IQR, Inter-quartile range",
-                                "Q25, Lower quartile",
-                                "Q75, Upper quartile"),
-          cgroup = c("Male", "Female"),
-          n.cgroup = c(4,4),
-          rowlabel = "Age category")
-
 ```
 
 
@@ -876,7 +736,7 @@ bwhivfig <- bwdf %>%
 bwhivfig
 ```
 
-###### **Figure 8. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
+###### **Figure 6. Distribution of bridge widths for each imputed dataset, by sex and HIV status.**
 
 <br>
 
@@ -911,7 +771,7 @@ bwhivfig
 ```
 
 
-###### **Figure 10. Model coefficients for relationship between HIV and bridgewidth.**
+###### **Figure 7. Model coefficients for relationship between HIV and bridgewidth.**
 
 <br>
 
@@ -933,9 +793,23 @@ bwagefig
 
 ```
 
-###### **Figure 11. Expected bridge widths for different values of age (smooth term), by gender.**
+###### **Figure 8. Expected bridge widths for different values of age (smooth term), by gender.**
 
 <br>
+
+### **KEY RESULTS TO DISCUSS**
+
+1. Not much difference between the slopes in each sub-population: Average partner age increases with each year increase in participant age between: `r round(slopeintci$lwr[8], 2)` and `r round(slopeintci$upr[5], 2)`
+
+2. When HIV negative men and women are 15 years old, the average difference between the population average partner age is approximately 5 years, with men having female partners who are `r round(slopeintci$mean[3])` years old on average and women `r round(slopeintci$mean[1])` years old on average. I think it is important to note here that young men also have older partners, and in Figure 1 we see that 20% of 15-24 year old women are HIV positive, compared to roughly 10% of men. Also the HIV positive 15 year olds seem to choose even older partners (mean: `r round(slopeintci$mean[4])`) although the distribution is more widespread.
+
+3. HIV positive women have larger wsd's AND bsd's than HIV negative women. Women with HIV are also expected to have nearly 3 times larger bridgewidths than HIV negative women. Are women actually driving HIV transmission?
+
+4. What do we make of the bimodal distribution of bsd's in HIV positive men? Just an artifact of uncertainty in participant age for their imputations? Of missing partner partner ages 65% were from men (not depicted here, but will be a supplementary web appendix)
+
+5. Expected bridgewidths probably increase with age in both men and women, although in women there is a slight hint that younger and older women might have higher BW's than middle-aged women.
+
+
 
 ```{r close, include = FALSE, warning = FALSE}
 # ====================================================

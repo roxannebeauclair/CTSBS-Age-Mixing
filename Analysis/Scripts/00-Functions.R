@@ -363,7 +363,7 @@ OrdPred <- function(mod, n, modAns){
 
 ampmodel <- function(df) {
   
-  lmer(agep ~ age0 + (1 | id),
+  lmer(agep ~ age0 + race + (1 | id),
        data = df,
        REML = TRUE)  
 }

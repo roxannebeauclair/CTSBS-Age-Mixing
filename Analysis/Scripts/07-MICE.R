@@ -89,13 +89,17 @@ pred <- quickpred(dfmice,
 # ======
 # Impute
 # ======
+start.time <- Sys.time()
 
 imp <- mice(dfmice, 
-            m = 50,
+            m = 100,
             method = meth,
             predictorMatrix = pred,
             seed = 40657,
             maxit = 10)
+
+end.time <- Sys.time()
+
 
 # ====================
 # Save raw imputations
@@ -109,6 +113,7 @@ save(imp, file = imputemids)
 # Check for convergence
 # No SD's for easy or truth because there is only 1 missing value
 plot(imp)
+plot(imp, c("agep", "age", "hiv"))
 
 # Check to see if observed values have similar distribution
 # as imputed values

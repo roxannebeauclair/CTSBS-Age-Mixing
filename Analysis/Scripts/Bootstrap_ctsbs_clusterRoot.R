@@ -45,7 +45,7 @@ load("/user/data/gent/vsc400/vsc40070/CTSBS/ctsbs_impute_data.rda")
 set.seed(4387)
 tidysumamp <- dfimp %>%
   filter(.imp == 1) %>%
-  select(.imp, .id, id, sex, hiv, agep, age0, agegroup) %>%
+  select(.imp, .id, id, sex, hiv, agep, age0, race) %>%
   mutate(id = as.factor(id)) %>% # Needed for bootstrapping
   group_by(.imp, sex, hiv) %>%
   nest() %>%

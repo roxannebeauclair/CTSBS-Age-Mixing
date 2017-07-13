@@ -39,24 +39,17 @@ load(excludedata)
 
 ```{r mdpattern, include = FALSE, warning = FALSE}
 
-# For relationship-level characteristics
-rels <- df %>%
-  select(relid, relseq, relcount, pt, slept, agep, 
-         live, otherpart, ongoing, relconcur, 
-         relsf, relcf, reldurweeks) 
+# Missing data pattern
+mdpdf <- df %>%
+  select(id, age, sex, race, 
+         job, grade, hiv, relid, 
+         relseq, relcount, pt, slept, 
+         agep, live, otherpart, ongoing, 
+         relconcur, relsf, relcf, reldurweeks,
+         easy, private, truth, start) 
 
-mdprels <- md.pattern(rels)
+mdprels <- md.pattern(mdpdf)
 mdprels[order(dimnames(mdprels)[[1]]),]
-summary(rels)
-
-# For participant-level characteristics
-parts <- df %>%
-  select(id, age, sex, race, job, grade, hiv, 
-         wantknow, resultgiven, easy, private, truth) %>%
-  distinct(id, .keep_all = TRUE)
-
-mdpparts <- md.pattern(parts)
-mdpparts[order(dimnames(mdpparts)[[1]]),]
 
 
 ```

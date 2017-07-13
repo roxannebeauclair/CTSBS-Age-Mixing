@@ -1,0 +1,144 @@
+---
+title: "Bootstrapping sensitivity analysis"
+author: "Roxanne Beauclair"
+date: '`r format(Sys.Date(), "%d %b %Y")`'
+output: html_document
+---
+
+```{r setup, include = FALSE}
+# ===================
+# Relative file paths
+# ===================
+wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSbS Age Mixing/Analysis"
+cdata <- paste0(wd, "/Data/Cleaned")
+
+excludedata <- paste0(cdata, "/ctsbs_excluded_data.rda")
+
+fxn <- paste0(wd, "/Scripts/00-Functions.R")
+
+# ====================
+# Loading dependencies
+# ====================
+source(fxn)
+
+# magrittr: for use of %>% operator
+# tidyverse: for data management functions
+# mice: for MI
+
+
+InstallLoad("magrittr", "tidyverse", 
+            "mice","nlme", "lme4", "modelr",
+            "mgcv", "gamm4", "broom", "splines", 
+            "mediation", "forcats", "Gmisc", "htmlTable")
+
+# =============
+# Load datasets
+# =============
+load(excludedata)
+
+# ====================
+# Set specific global options
+# ====================
+
+# Set theme for plots
+theme <- theme(axis.title.x = element_text(face = "bold", size = 10),
+             axis.text.x  = element_text(angle = 0, face = "bold",
+                                         colour = "black", size = 8),
+             axis.title.y = element_text(face = "bold", size = 10),
+             axis.text.y = element_text(angle = 0, 
+                                        face = "bold", 
+                                        colour = "black", 
+                                        hjust = 0.5,
+                                        size = 8),
+             plot.title = element_text(lineheight = .8, face = "bold"),
+             panel.grid.major = element_line(colour = 'grey82'),
+             panel.grid.minor = element_line(colour = NA),
+             panel.background = element_rect(fill = 'white'),
+             strip.background = element_rect(fill = 'white'),
+             strip.text = element_text(size = 8, face = "bold"),
+             legend.title = element_text(colour = "black", size = 9, face = "bold"),
+             legend.text = element_text(size = 8, face = "bold"),
+             plot.margin = unit(c(1.5,1,1,1), "lines"))
+
+```
+
+```{r bootstrap_setup, include = FALSE, warning = FALSE, message = FALSE}
+
+# 1. Create a dataset subset of HIV positive men, from complete cases.
+# 2. Bootstrap the dataset 2000 times
+# 3. Run regression models on all datasets (adjusting for race)
+# 4. Extract model components
+# 5. Output tidy df
+
+
+ampsetup <- df %>%
+  filter(sex == "Male",
+         hiv == "Positive") %>%
+  mutate(id = as.factor(id), # Needed for bootstrapping
+         age0 = age - 15) 
+
+set.seed(52345)
+boot <- bootstrap_clus(ampsetup, 2000) %>%
+  mutate(model = map(strap, ampmodel), # ampmodel is function for lmer amp model
+         bvar = map(model, bvar)) %>% # Obtaining between subject variance using function bvar
+  select(-strap, -model) # These objects contain full datasets, which make the file too big to download
+
+
+# for(i in 1:1000) {
+#   
+#   models <- list()
+#   
+#   print(i)
+#   
+#   models[[i]] <- ampmodel(boot$strap[[i]])
+#   
+# }
+
+
+```
+```{r bvar_setup, include = FALSE, warning = FALSE}
+
+# Unnest tidy summary for data on between individual variance
+modbvar <- boot %>%
+  unnest(bvar, .drop = TRUE)
+
+modbvar
+
+
+# Now take all of the bvars and calculate CI's using percentile method
+alpha = 0.05
+
+bsdci <- modbvar %>%
+  summarise(mean = mean(bsd),
+            lwr = quantile(bsd, alpha / 2),
+            upr = quantile(bsd, 1- alpha / 2))
+
+bsdci
+
+```
+
+```{r amp_model_bvar_plot, echo = FALSE, warning = FALSE, fig.height = 8}
+# Plot each of the between subject variances for age mixing pattern
+
+bvarplot <- modbvar %>%
+  ggplot(aes(x = bsd)) +
+  geom_density(alpha = 0.2, fill = "blue") +
+  geom_vline(aes(xintercept = mean), 
+             data = bsdci,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = lwr), 
+             data = bsdci,
+             linetype = "dashed") +
+  geom_vline(aes(xintercept = upr), 
+             data = bsdci,
+             linetype = "dashed") 
+  xlab("Between-subject Standard Deviation") +
+  theme
+
+bvarplot
+```
+
+
+
+
+

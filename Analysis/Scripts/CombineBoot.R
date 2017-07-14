@@ -33,7 +33,7 @@ ampdf <- tibble(.imp = factor(),
                             bvar = list(),
                             wvar = list()) 
 
-for(i in 1:50){
+for(i in 1:100){
   path <- bdata
   data.name <- paste0(path, "ctsbs_boot_amp_data_", i, ".rda")
   

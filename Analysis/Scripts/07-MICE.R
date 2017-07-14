@@ -43,7 +43,7 @@ load(excludedata)
 
 dfmice <- df %>%
   mutate(start = as.factor(ifelse(!is.na(start), "Last year", "Before last year"))) %>%
-  select(id, age, sex, race, 
+  select(id, age, sex,  
          job, grade, hiv, relid, 
          relseq, relcount, pt, slept, 
          agep, live, otherpart, ongoing, 
@@ -61,7 +61,7 @@ dfmice <- df %>%
 # Specify imputation method for each variable
 # ===========================================
 
-meth <- c("", "rfcont", "rfcat", "rfcat",
+meth <- c("", "rfcont", "rfcat", 
           "rfcat", "rfcat", "rfcat", "",
           "", "", "", "rfcat",
           "rfcont", "rfcat", "rfcat", "rfcat",
@@ -81,7 +81,7 @@ pred <- quickpred(dfmice,
                               "missage", "missagep", "misshiv",
                               "missrelcf", "missrelconcur", "missrelsf",
                               "missreldur"),
-                  include = c("age", "sex", "race", "hiv",
+                  include = c("age", "sex", "hiv",
                               "pt", "slept", "truth"),
                   mincor = 0.1,
                   minpuc = 0.1)
@@ -141,7 +141,6 @@ dfimp1mis <- dfimp %>%
   filter(.imp != 0) %>%
   mutate(age = first(age),
          sex = first(sex),
-         race = first(race),
          job = first(job),
          grade = first(grade),
          hiv = first(hiv),

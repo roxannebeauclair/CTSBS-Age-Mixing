@@ -37,15 +37,15 @@ load("/user/data/gent/vsc400/vsc40070/CTSBS/ctsbs_impute_data.rda")
 
 # 1. Create a dataset that nests all of the datasets according to
 # gender, imputation, and hiv status.
-# 2. Bootstrap each of the 50 datasets for each subgroup
-# 3. Run regression models on all datasets (adjusting for race)
+# 2. Bootstrap each of the 100 datasets for each subgroup
+# 3. Run regression models on all datasets 
 # 4. Extract model components
 # 5. Output tidy df
 
 set.seed(4387)
 tidysumamp <- dfimp %>%
   filter(.imp == 1) %>%
-  select(.imp, .id, id, sex, hiv, agep, age0, race) %>%
+  select(.imp, .id, id, sex, hiv, agep, age0) %>%
   mutate(id = as.factor(id)) %>% # Needed for bootstrapping
   group_by(.imp, sex, hiv) %>%
   nest() %>%

@@ -44,19 +44,14 @@ df1 <- df %>%
            ((sex == "Female" & sexorientation == "Men")) |
               (is.na(sex)))
 
-# Race: not black or coloured
+# Race: only black in sample
 df2 <- df1 %>%
-  filter(race == "Coloured" | 
-           race == "Black" |
-           is.na(race))
+  filter(race == "Black")
 
 # Partner: no reported partner in previous year 
 df <- df2 %>%
   filter(partner != 0) %>%
   droplevels()
-
-# Sex: no sex with partner in the past year
-# Episodes in the previous 12 months
 
 
 # ==================

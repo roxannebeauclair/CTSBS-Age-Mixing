@@ -362,36 +362,17 @@ OrdPred <- function(mod, n, modAns){
 # }
 
 ampmodel <- function(df) {
+    
+  tryCatch({
+    
+    lmer(agep ~ age0 + (1 | id),
+         data = df,
+         REML = TRUE)
+    
+  }, error = function(e) {
+    print(paste("My error: ", e)); NA
+  })
   
-  df <- droplevels(df)
-  cats <- length(levels(df$race))
-  
-  if(cats < 2) {
-    
-    tryCatch({
-      
-      lmer(agep ~ age0 + (1 | id),
-           data = df,
-           REML = TRUE)
-      
-    }, error = function(e) {
-      print(paste("My error: ", e)); NA
-    })
-    
-    
-  } else {
-    
-    tryCatch({
-      
-      lmer(agep ~ age0 + race + (1 | id),
-           data = df,
-           REML = TRUE)
-      
-    }, error = function(e) {
-      print(paste("My error: ", e)); NA
-    })
-  }
-    
 }
 
 # Extracts the between subject SD from agemixing pattern model

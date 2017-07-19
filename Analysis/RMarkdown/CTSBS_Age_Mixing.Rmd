@@ -231,60 +231,6 @@ mergeDesc(tab1) %>%
 
 <br>
 
-
-```{r race_check, include = FALSE, warning = FALSE}
-# Check in complete cases if race should be in the model
-racecheckhnm <- dfimp %>%
-  filter(.imp == 0,
-         sex == "Male",
-         hiv == "Negative") 
-
-racecheckhnw <- dfimp %>%
-  filter(.imp == 0,
-         sex == "Female",
-         hiv == "Negative") 
-
-racecheckhpm <- dfimp %>%
-  filter(.imp == 0,
-         sex == "Male",
-         hiv == "Positive") 
-
-racecheckhpw <- dfimp %>%
-  filter(.imp == 0,
-         sex == "Female",
-         hiv == "Positive") 
-
-hnm <- lmer(agep ~ age0 + race + (1 | id),
-       data = racecheckhnm,
-       REML = TRUE)
-tidy(hnm)
-confint(hnm)
-
-hpm <- lmer(agep ~ age0 + race + (1 | id),
-       data = racecheckhpm,
-       REML = TRUE)
-
-tidy(hpm)
-confint(hpm)
-
-hpw <- lmer(agep ~ age0 + race + (1 | id),
-       data = racecheckhpw,
-       REML = TRUE)
-
-tidy(hpw)
-confint(hpw)
-
-hnw <- lmer(agep ~ age0 + race + (1 | id),
-       data = racecheckhnw,
-       REML = TRUE)
-
-tidy(hnw)
-confint(hnw)
-
-
-```
-
-
 ```{r slope_int_setup, include = FALSE, warning = FALSE}
 # Unnest tidy summary for data on slope and intercept
 # of all the models

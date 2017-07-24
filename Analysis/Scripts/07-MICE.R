@@ -152,7 +152,6 @@ dfimp1mis <- dfimp %>%
 dfimp1 <- bind_rows(dfimp1cc, dfimp1mis) %>%
   as.data.frame()
          
-         
 # Ensure all cont vars have plausible values 
 dfimp2 <- dfimp1 %>%
   mutate(age = ifelse(age < 15, 15, 

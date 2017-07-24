@@ -82,7 +82,9 @@ GetT1Stat <- function(var, byvar, continuous_fn = describeMedian, prop_fn = desc
                         continuous_fn = continuous_fn,
                         prop_fn = prop_fn,
                         header_count = TRUE,
-                        digits = 1)
+                        digits = 1,
+                        hrzl_prop = TRUE,
+                        add_total_col = FALSE)
 }
 
 # Rounding vectors in dataframe
@@ -615,7 +617,7 @@ wvar <- function(model) {
 
 bwmodel <- function(df) {
   
-  gam(bridgewidth ~ hiv + s(age) + race,
+  gam(bridgewidth ~ hiv + s(age),
     data = df,
     family = nb())
 

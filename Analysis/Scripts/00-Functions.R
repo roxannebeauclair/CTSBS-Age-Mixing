@@ -82,9 +82,9 @@ GetT1Stat <- function(var, byvar, continuous_fn = describeMedian, prop_fn = desc
                         continuous_fn = continuous_fn,
                         prop_fn = prop_fn,
                         header_count = TRUE,
-                        digits = 1,
-                        hrzl_prop = TRUE,
-                        add_total_col = FALSE)
+                        # hrzl_prop = TRUE, FOR ROW %'s
+                        # add_total_col = FALSE, FOR ROW %'s
+                        digits = 1)
 }
 
 # Rounding vectors in dataframe

@@ -877,6 +877,25 @@ bwagefig
 
 <br>
 
+```{r page_at_50, include = FALSE, warning = FALSE}
+# formula for calculating average partner age
+# page = B-Age * (Age) + Intercept
+
+# HNM
+pagehnm40 <- round((slopeintci$mean[7] * 40) + slopeintci$mean[3])
+
+# HNW
+pagehnw40 <- round((slopeintci$mean[5] * 40) + slopeintci$mean[1])
+
+# HPW
+pagehpw40 <- round((slopeintci$mean[6] * 40) + slopeintci$mean[2])
+
+# HPM
+pagehpm40 <- round((slopeintci$mean[8] * 40) + slopeintci$mean[4])
+
+```
+
+
 ### **KEY RESULTS TO DISCUSS**
 
 1. Not much difference between the slopes in each sub-population: Average partner age increases with each year increase in participant age between: `r round(slopeintci$lwr[8], 2)` and `r round(slopeintci$upr[5], 2)`. HPW have steep slopes than HNM...meaning the age gaps are increasing more for women as they get older. 
@@ -891,7 +910,7 @@ bwagefig
 
 We randomly selected one of the 100 imputed data sets from which to calculate the HIV prevalence in our Cape Town study population (Figure 1). In most age groups, women had a higher HIV prevalence than men. For women aged 15-24, their HIV prevalence was nearly 3.5 times that of the men in that same age group (`r round(hivprev$prop[20] * 100, 1)`% in women vs. `r round(hivprev$prop[2] * 100, 1)`% in men). This disparity was just as striking in 25-29-year-olds, with `r round(hivprev$prop[22] * 100, 1)`% of women infected and only `r round(hivprev$prop[4] * 100, 1)`% of men infected. HIV prevalence peaked in women 30-34 years old (`r round(hivprev$prop[24] * 100, 1)`%) and in men who were 40-44 (`r round(hivprev$prop[10] * 100, 1)`%).
 
-Figure 2 shows the distribution of model β-coefficients, which represents how fast the age differences grew as participants' ages increased. For all subpopulations the average partner ages increased with each year increase in participant age. HPM had the smallest model slope, which means that they also had the largest increases in age differences. With each year increase in age their age differences also increased by `r 1 - round(slopeintci$mean[8], 2)` (β: `r round(slopeintci$mean[8], 2)`; 95% CI: `r 1 - round(slopeintci$lwr[8], 2)` - `r 1 -  round(slopeintci$upr[8], 2)`) (Figure 2). Most of the distributions seem to overlap to a great extent and in Table 1, we see there were not large differences in β-coefficients between the groups, all differences overlapped with zero. Although, there is some evidence that HNW have steeper slopes than HNM (Diff: `r slopedifci$meangendifneg`; 95% CI: `r slopedifci$lwrgendifneg` - `r slopedifci$uprgendifneg`). Also in Table 1 we see that for the HNM and HNW the model intercept difference was approximately `r round(intdifci$meangendifneg)` years (95% CI: `r intdifci$lwrgendifneg` - `r intdifci$uprgendifneg`), with 15-year-old men and women in those groups having partners who were `r round(slopeintci$mean[3])` (95% CI: `r round(slopeintci$lwr[3])` - `r round(slopeintci$upr[3])`) and `r round(slopeintci$mean[1])`-years-old (95% CI: `r round(slopeintci$lwr[1])` - `r round(slopeintci$upr[1])`) on average, respectively (Figure 3). 
+Figure 2 shows the distribution of model β-coefficients, which represents how fast the partner ages grow as participants' ages increased. For all subpopulations the average partner ages increased with each year increase in participant age. HPM had the smallest average model slope (β: `r round(slopeintci$mean[8], 2)`; 95% CI: `r round(slopeintci$lwr[8], 2)` - `r round(slopeintci$upr[8], 2)`), while HNW had the largest (β: `r round(slopeintci$mean[5], 2)`; 95% CI: `r round(slopeintci$lwr[5], 2)` - `r round(slopeintci$upr[5], 2)`) (Figure 2). Most of the distributions seem to overlap to a great extent and in Table 1, we see there were not large differences in β-coefficients between the groups, with all differences overlapping with zero. Although, there is some evidence that HNW have steeper slopes than HNM (Diff: `r slopedifci$meangendifneg`; 95% CI: `r slopedifci$lwrgendifneg` - `r slopedifci$uprgendifneg`). Also in Table 1 we see that for the HNM and HNW the model intercept difference was approximately `r round(intdifci$meangendifneg)` years (95% CI: `r intdifci$lwrgendifneg` - `r intdifci$uprgendifneg`), with 15-year-old men and women in those groups having partners who were `r round(slopeintci$mean[3])` (95% CI: `r round(slopeintci$lwr[3])` - `r round(slopeintci$upr[3])`) and `r round(slopeintci$mean[1])`-years-old (95% CI: `r round(slopeintci$lwr[1])` - `r round(slopeintci$upr[1])`) on average, respectively (Figure 3). If we take the mean model slopes and intercepts for each subpopulation the average partner age at 40 years old would be `r pagehnw40` years for HNW, `r pagehnm40` years for HNM, `r pagehpw40` years for HPW, and `r pagehpm40` years for HPM.
 
 HNM had the largest BSSD (BSSD: `r round(bsdci$mean[3], 2)`; 95% CI: `r round(bsdci$lwr[3], 2)` - `r round(bsdci$upr[3], 2)`) while HPW had the lowest (BSSD: `r round(bsdci$mean[2], 2)`; 95% CI: `r round(bsdci$lwr[2], 2)` - `r round(bsdci$upr[2], 2)`) (Figure 4). There appears to be a wide and bimodal distribution of BSSD's in HPM. In the complete case data there were only `r nhivmen` relationships in this subpopulation, with the minimum and maximum partner ages being `r pagerangemin` and `r pagerangemax`, respectively. We believe those extreme values were oversampled in the bootstrap replicates because of the small sample size, thus resulting in clusters of results with both small and large BSSDs. Therefore, we do not encourage readers to over-interpret the BSSDs for HPM in Figure 4. Table 1 shows that there was a relatively large and significant difference between the BSSD in HPW and HNW (Diff: `r bvardifci$meanhivdiffemale`; 95% CI: `r bvardifci$lwrhivdiffemale` - `r bvardifci$uprhivdiffemale`). 
 

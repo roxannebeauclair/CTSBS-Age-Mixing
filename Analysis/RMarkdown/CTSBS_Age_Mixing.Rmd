@@ -858,6 +858,13 @@ bwhivfig
 
 ```{r bw_age_fig, echo = FALSE, warning = FALSE}
 
+# Find the frequency of individuals aged 60-70
+# Use randomly selected dataset from above
+countdf <- partdfimp %>%
+  filter(.imp == n) %>%
+  count(age > 60)
+
+
 # Plot expected BW's for different values of age (or spline variable)
 # Spaghetti plot to show each line for dataset by gender
 bwagefig <- bwmodpredage %>%

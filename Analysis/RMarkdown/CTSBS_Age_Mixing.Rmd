@@ -702,6 +702,16 @@ hivageplot
 <br>
 
 ```{r bw_hiv_setup, include = FALSE, warning = FALSE}
+# Number of partners by BW in CC dataset
+# cc <- partdfimp %>%
+#   filter(.imp == 0,
+#          relcount > 1)
+# 
+# cc %>%
+#   ggplot(aes(x = bridgewidth, y = relcount)) +
+#   geom_point()
+  
+
 # Exclude complete cases dataframe
 # Keep only participants with more than one relationship in the past year
 impsex <- partdfimp %>% 

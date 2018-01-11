@@ -702,11 +702,12 @@ hivageplot
 <br>
 
 ```{r bw_hiv_setup, include = FALSE, warning = FALSE}
-# Number of partners by BW in CC dataset
-# cc <- partdfimp %>%
-#   filter(.imp == 0,
-#          relcount > 1)
-# 
+#  Number of partners by BW in CC dataset
+#  cc <- partdfimp %>%
+#    filter(.imp == 0,
+#           relcount > 1,
+#           bridgewidth != -Inf)
+#
 # cc %>%
 #   ggplot(aes(x = bridgewidth, y = relcount)) +
 #   geom_point()

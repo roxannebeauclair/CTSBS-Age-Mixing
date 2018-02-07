@@ -1,0 +1,252 @@
+---
+title: "MNAR sensitivity analysis"
+author: "Roxanne Beauclair"
+date: '`r format(Sys.Date(), "%d %b %Y")`'
+output: html_document
+---
+
+```{r setup, include = FALSE}
+# ===================
+# Relative file paths
+# ===================
+wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSbS Age Mixing/Analysis"
+cdata <- paste0(wd, "/Data/Cleaned")
+
+imputedata <- paste0(cdata, "/ctsbs_impute_data.rda")
+imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
+excludedata <- paste0(cdata, "/ctsbs_excluded_data.rda")
+
+
+fxn <- paste0(wd, "/Scripts/00-Functions.R")
+
+# ====================
+# Loading dependencies
+# ====================
+source(fxn)
+
+
+InstallLoad("magrittr", "tidyverse", 
+            "mice","CALIBERrfimpute","modelr",
+            "mgcv", "gamm4", "broom", "splines", 
+            "htmlTable")
+
+# =============
+# Load datasets
+# =============
+load(imputedata)
+load(imputedatapart)
+load(excludedata)
+
+```
+
+```{r setup_postimp_sens, include = FALSE, warning = FALSE}
+
+# =======================================
+# Select out only variables used for mice
+# =======================================
+dfmice <- df %>%
+  mutate(start = as.factor(ifelse(!is.na(start), "Last year", "Before last year"))) %>%
+  select(id, age, sex,  
+         job, grade, hiv, relid, 
+         relseq, relcount, pt, slept, 
+         agep, live, otherpart, ongoing, 
+         relconcur, relsf, relcf, reldurweeks,
+         easy, private, truth, start) %>%
+  mutate(missage = factor(ifelse(is.na(age), "Imputed", "Observed")),
+         missagep = factor(ifelse(is.na(agep), "Imputed", "Observed")),
+         misshiv = factor(ifelse(is.na(hiv), "Imputed", "Observed")),
+         missrelcf = factor(ifelse(is.na(relcf), "Imputed", "Observed")),
+         missrelconcur = factor(ifelse(is.na(relconcur), "Imputed", "Observed")),
+         missrelsf = factor(ifelse(is.na(relsf), "Imputed", "Observed")),
+         missreldur = factor(ifelse(is.na(reldurweeks), "Imputed", "Observed")))
+
+# ===========================================
+# Specify imputation method for each variable
+# ===========================================
+
+meth <- c("", "rfcont", "rfcat", 
+          "rfcat", "rfcat", "rfcat", "",
+          "", "", "", "rfcat",
+          "rfcont", "rfcat", "rfcat", "rfcat",
+          "rfcat", "rfcont", "polr", "rfcont",
+          "polr", "polr", "polr", "",
+          "", "", "", "",
+          "", "", "")
+
+# ====================
+# Get predictor matrix
+# ====================
+
+imp <- mice(dfmice, maxit = 0, print = FALSE)
+
+pred <- quickpred(dfmice,
+                  exclude = c("id", "relid", "relseq",
+                              "missage", "missagep", "misshiv",
+                              "missrelcf", "missrelconcur", "missrelsf",
+                              "missreldur"),
+                  include = c("age", "sex", "hiv",
+                              "pt", "slept", "truth"),
+                  mincor = 0.1,
+                  minpuc = 0.1)
+
+# ====================
+# Post-processing
+# ====================
+
+post <- imp$post
+
+# Different sensitivity assumptions
+# k represents the odds ratio for the liklihood of being
+# HIV positive for individuals with missing status versus
+# those with observed values
+# For imputation model, should be on log odds scale
+
+or <- c(1.0, 1.5, 2.0, 4.0)
+delta <- log(or)
+# delta <- c(-10, -15, -20)
+
+# To store results from male models
+estm <- vector("list", length(delta))
+
+# To store results from female models
+estw <- vector("list", length(delta))
+
+```
+
+
+```{r sensitivity_imputations, include = FALSE, warning = FALSE}
+# ======
+# Impute
+# ======
+start.time <- Sys.time()
+
+for (i in 1:length(delta)) {
+  
+  d <- delta[i]
+  post["hiv"] <- paste("imp[[j]][,i] <- imp[[j]][,i] +", d)
+  
+  # ================================
+  # Conduct imputation for particular assumption of missingness
+  # ================================
+  imp <- mice(dfmice, 
+            m = 100,
+            # method = meth,
+            predictorMatrix = pred,
+            seed = 40657,
+            maxit = 10,
+            post = post)
+  
+  # ================================
+  # Convert mids object to dataframe
+  # ================================
+  dfimp <- complete(imp, action = "long", include = T)
+  
+  # =================
+  # Variable creation
+  # =================
+  
+  # Ensure all of participant-level variables are the same by id
+  # Will do this by using the first value by id for each imputed df
+  dfimp1cc <- dfimp %>%
+    arrange(.imp, id) %>%
+    filter(.imp == 0) # Keep complete cases aside
+  
+  dfimp1mis <- dfimp %>%
+    arrange(.imp, id) %>%
+    group_by(.imp, id) %>%
+    filter(.imp != 0) %>%
+    mutate(age = first(age),
+           sex = first(sex),
+           job = first(job),
+           grade = first(grade),
+           hiv = first(hiv),
+           easy = first(easy),
+           private = first(private),
+           truth = first(truth)) %>%
+    ungroup()
+  
+  dfimp1 <- bind_rows(dfimp1cc, dfimp1mis) %>%
+    as.data.frame()
+  
+  # Ensure all cont vars have plausible values 
+  dfimp2 <- dfimp1 %>%
+    mutate(age = ifelse(age < 15, 15, 
+                        ifelse(age > 69, 69, age)) %>%
+             round(),
+           agep = ifelse(agep < 11, 11, 
+                         ifelse(agep > 95, 95, agep)) %>%
+             round(),
+           relsf = ifelse(relsf < 0, 0, relsf) %>%
+             round(),
+           reldurweeks = ifelse(reldurweeks < 1, 1,
+                                ifelse(reldurweeks > 51, 51, reldurweeks)) %>%
+             round())
+  
+  # New measures for subsequent analyses
+  dfimp3 <- dfimp2 %>%
+    mutate(agedif = ifelse(sex == "Male", age - agep, agep - age)) %>%
+    group_by(.imp, id) %>%
+    mutate(admax = max(agedif, na.rm = T),
+           admin = min(agedif, na.rm = T),
+           bridgewidth = admax - admin) %>%
+    ungroup() 
+  
+  dfimp4 <- dfimp3 %>%
+    group_by(.imp, sex) %>% #Want the mean and sd of ages by gender
+    mutate(aveage = round(mean(age, na.rm = T)),
+           sdage = round(sd(age, na.rm = T), 2)) %>%
+    ungroup()
+  
+  dfimp <- dfimp4 %>%
+    mutate(age0 = age - 15, # Centered on youngest age
+           agemean = age - aveage, # Centered age on mean
+           age2sd = (age - aveage)/ (2 * sdage), # Centered age on mean, then scaled by 2SD
+           agegroup = cut(age,
+                          breaks = c(14, 24, 34, 44, 54, 70),
+                          labels = c("15-24", "25-34", "35-44", "45-54", "55-70")),
+           agepgroup = cut(agep, 
+                           breaks = c(10, 24, 34, 44, 54, 100),
+                           labels = c("<=24", "25-34", "35-44", "45-54", ">=55"))) %>%
+    as.data.frame()
+  
+  # Create separate dataset that only has one row per participant and imputation
+  partdfimp <- dfimp %>%
+    distinct(.imp, id, .keep_all = T)
+
+  # Turn back to mids object for models and pooling
+  part <- partdfimp %>% 
+   mutate(bridgewidth = ifelse(bridgewidth == -Inf | bridgewidth == Inf, 
+                               NA, bridgewidth)) %>% # Change Inf, -Inf from CC data to NA
+   filter(relcount > 1) %>% # Only participants who had more than one rel
+   as.mids() 
+  
+  fitm <- part %>%
+   with(gam(bridgewidth ~ hiv + s(age),
+         family = nb(),
+         subset = (sex == "Male")))
+  
+  estm[[i]] <- fitm %>%
+    pool() %>%
+    summary() %>%
+    exp() %>%
+    round(2)
+  
+  fitw <- part %>%
+   with(gam(bridgewidth ~ hiv + s(age),
+         family = nb(),
+         subset = (sex == "Female")))
+  
+  estw[[i]] <- fitw %>%
+    pool() %>%
+    summary() %>%
+    exp() %>%
+    round(2)
+}
+
+
+end.time <- Sys.time()
+```
+
+
+
+

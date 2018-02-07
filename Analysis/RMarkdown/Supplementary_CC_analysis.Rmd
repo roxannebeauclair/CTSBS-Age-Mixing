@@ -13,6 +13,8 @@ wd <- "/Users/roxannebeauclair/Documents/Analytical Projects/PhD/CTSbS Age Mixin
 cdata <- paste0(wd, "/Data/Cleaned")
 
 excludedata <- paste0(cdata, "/ctsbs_excluded_data.rda")
+imputedatapart <- paste0(cdata, "/ctsbs_impute_data_part.rda")
+
 
 
 fxn <- paste0(wd, "/Scripts/00-Functions.R")
@@ -40,6 +42,7 @@ library(ggplot2)
 # Load datasets
 # =============
 load(excludedata)
+load(imputedatapart)
 
 
 # ====================
@@ -129,8 +132,8 @@ tab1[["Condom frequency"]] <- GetT1Stat(smalldf$cf, smalldf$sex)
 
 ```{r rel_chars_tab, echo = FALSE, warning = FALSE, message = FALSE}
 mergeDesc(tab1) %>%
-  htmlTable(caption = "<b>Table 1. Relationship characteristics by sex<b/>",
-            tfoot = "All continuous values are reported with median and inter-quartile range, Med (IQR), while categories are reported in percentages, n (%). There were 27 relationships that belonged to participants with missing gender status, and thus were excluded from this table.",
+  htmlTable(caption = "<b>Table 1. Relationship characteristics by sex using the original dataset<b/>",
+            tfoot = "All continuous values are reported with median and interquartile range, Med (IQR), while categories are reported in percentages, n (%). There were 27 relationships that belonged to participants with missing gender status, and thus were excluded from this table.",
             rowlabel = "Variables",
             cgroup = "Sex",
             n.cgroup = ncol(tab1[[1]]),
@@ -165,7 +168,7 @@ hivprevplot <- hivprev %>%
   filter(hiv == "Positive") %>%
   ggplot(aes(x = agegroup, y = prop, fill = sex)) +
   geom_bar(stat = "identity",
-           position = "dodge2") +
+           position = position_dodge()) +
   geom_errorbar(aes(ymax = ul, ymin = ll),
                 position = position_dodge(0.9),
                 width = 0.10) +
@@ -177,6 +180,8 @@ hivprevplot <- hivprev %>%
 hivprevplot
 
 ```
+<br>
+<br>
 
 ```{r ampmodel, echo = FALSE, message = FALSE, warning = FALSE}
 
@@ -228,7 +233,7 @@ modwvar
 ```
 
 
-```{r table 1 setup, include = FALSE}
+```{r amp_model_tab_setup, include = FALSE}
 
 # Matrix for  model results
 mx <- matrix(ncol = 4, nrow = 4)
@@ -258,6 +263,8 @@ mx[4, 4] <- paste0(round(modwvar$wsd[4], 2), " (", round(modwvar$lwrwsd[4], 2), 
 
 ```
 
+<br>
+<br>
 
 ```{r amp_model_tab, echo = FALSE, fig.width = 10}
 
@@ -271,6 +278,92 @@ mx %>%
                                  "BSSD, Between-subject Standard Deviation",
                                  "WSSD, Within-subject Standard Deviation"),
             rowlabel = "Population strata",
+            ctable = TRUE)
+
+```
+
+
+```{r bw_model_setup, include = FALSE, warning = FALSE, message = FALSE}
+
+# These are the people who reported more than one partner
+# However, even though they may have reported more than one partner,
+# they may not have reported ages for all partners and thus, they may
+# have a missing age differences (and thus "-Inf" for bw)
+
+cc <- partdfimp %>%
+  filter(.imp == 0, relcount > 1, bridgewidth != -Inf) %>%
+  group_by(sex) 
+
+# Among those with more than 1 partner
+bwsum <- cc %>%
+  summarise(n = n(),
+            Median = median(bridgewidth),
+            Mean = mean(bridgewidth),
+            sd = sd(bridgewidth),
+            lwr = summary(bridgewidth)[[2]],
+            upr = summary(bridgewidth)[[5]])
+
+
+# Does HIV predict bridgewidths (neg bin models)?
+# Does HIV predict whether a participant had a concurrent rel in past year (logistic models)?
+
+tidysum <- cc %>% 
+  nest() %>%
+  mutate(modelbw = map(data, bwmodel),
+         modelsumbw = map(modelbw, tidygam), # Create tidy summary of each model and store as modelsum var in nested df
+         predsbwage = map(modelbw, gampredsage)) # Create predictions across dif vals of age (our spline var))
+
+# Unnest the tidy summary, to see the tidy model estimates for each model
+bwmodcoef <- tidysum %>%
+  unnest(modelsumbw, .drop = TRUE) 
+
+# Unnest the tidy summary, to see the tidy model predictions for values of age
+# for each model
+bwmodpredage <- tidysum %>%
+  unnest(predsbwage, .drop = TRUE)
+
+```
+
+```{r bw_model_tab_setup, include = FALSE}
+
+# These are the pooled coefficients from mice main analysis
+# BE CAREFUL TO UPDATE THESE NUMBERS IF "CTSBS_AGE_MIXING.RMD" CHANGES
+mpoolEBWR <- 1.93
+mpoolEBWRlwr <- 0.69
+mpoolEBWRupr <- 5.41
+wpoolEBWR <- 2.76
+wpoolEBWRlwr <- 1.16
+wpoolEBWRupr <- 6.59
+
+# These are the coefficients from the complete case analysis
+mccEBWR <- round(bwmodcoef$ratio[13], 2)
+mccEBWRlwr <- round(bwmodcoef$rlwr[13], 2)
+mccEBWRupr <- round(bwmodcoef$rupr[13], 2)
+wccEBWR <- round(bwmodcoef$ratio[2], 2)
+wccEBWRlwr <- round(bwmodcoef$rlwr[2], 2)
+wccEBWRupr <- round(bwmodcoef$rupr[2], 2)
+
+mx <- matrix(ncol = 2, nrow = 2)
+colnames(mx) <- c("Men EBWR (95% CI)", "Women EBWR (95% CI)")
+rownames(mx) <- c("Complete case analysis", "Pooled from MICE")
+
+mx[1, 1] <- paste0(mccEBWR, " (", mccEBWRlwr, " — ", mccEBWRupr, ")")
+mx[1, 2] <- paste0(wccEBWR, " (", wccEBWRlwr, " — ", wccEBWRupr, ")")
+mx[2, 1] <- paste0(mpoolEBWR, " (", mpoolEBWRlwr, " — ", mpoolEBWRupr, ")")
+mx[2, 2] <- paste0(wpoolEBWR, " (", wpoolEBWRlwr, " — ", wpoolEBWRupr, ")")
+
+```
+
+<br>
+<br>
+
+```{r bw_model_tab, echo = FALSE, fig.width = 10}
+
+
+mx %>%
+  htmlTable(caption = "<b>Table 3. Model coefficients for relationship between HIV and bridge width. The Expected Bridge Width Ratio (EBWR) is the ratio of expected bridge widths for those who are HIV positive compared to those who are HIV negative. The EBWR is derived from the negative binomial model that also adjusts for the age of the participant.</b>",
+            tfoot = txtMergeLines("The complete case analysis uses the raw dataset and observations for which there were no missing data on variables used in the analysis (Women: n = 56; Men: n = 58). The pooled MICE analysis uses the combined 100 imputed datasets presented in the main text."),
+            rowlabel = "Analysis type",
             ctable = TRUE)
 
 ```

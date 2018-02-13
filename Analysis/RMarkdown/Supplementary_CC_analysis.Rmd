@@ -144,6 +144,16 @@ mergeDesc(tab1) %>%
 ```
 
 ```{r hiv_prev, echo = FALSE, message = FALSE, warning = FALSE}
+# Create row for HIV positive men aged 15-24
+filler <- tibble(sex = "Male", 
+                 agegroup = "15-24", 
+                 hiv = "Positive", 
+                 n = 0, 
+                 total = 0, 
+                 prop = 0, 
+                 ll = 0, 
+                 ul = 0)
+
 hivprev <- smalldf %>%
   mutate(agegroup = cut(age,
                         breaks = c(0, 24, 29, 34, 
@@ -160,15 +170,17 @@ hivprev <- smalldf %>%
   ungroup() %>%
   group_by(sex, agegroup, hiv, n, total) %>%          # The binom.test() function is not vectorized,
   mutate(ll = binom.test(n, total)$conf.int[1],       # and thus, we need to make sure each row is   
-         ul = binom.test(n, total)$conf.int[2]) %>%   # treated as an individual data frame
-  na.omit() # Remove all rows with missing
+         ul = binom.test(n, total)$conf.int[2]) %>% 
+  filter(hiv == "Positive",
+         !is.na(sex),
+         !is.na(agegroup)) %>%
+  bind_rows(filler)
   
 
 hivprevplot <- hivprev %>%
-  filter(hiv == "Positive") %>%
   ggplot(aes(x = agegroup, y = prop, fill = sex)) +
   geom_bar(stat = "identity",
-           position = position_dodge()) +
+           position = position_dodge(0.9)) +
   geom_errorbar(aes(ymax = ul, ymin = ll),
                 position = position_dodge(0.9),
                 width = 0.10) +
@@ -183,8 +195,8 @@ hivprevplot
 <br>
 <br>
 
-```{r ampmodel, echo = FALSE, message = FALSE, warning = FALSE}
 
+```{r ampmodel, echo = FALSE, message = FALSE, warning = FALSE}
 # Create a grouped dataset for different population strata
 # Remove missing observations for sex, hiv, age, and page
 strata <- smalldf %>%
@@ -345,7 +357,7 @@ wccEBWRupr <- round(bwmodcoef$rupr[2], 2)
 
 mx <- matrix(ncol = 2, nrow = 2)
 colnames(mx) <- c("Men EBWR (95% CI)", "Women EBWR (95% CI)")
-rownames(mx) <- c("Complete case analysis", "Pooled from MICE")
+rownames(mx) <- c("CC", "MI")
 
 mx[1, 1] <- paste0(mccEBWR, " (", mccEBWRlwr, " — ", mccEBWRupr, ")")
 mx[1, 2] <- paste0(wccEBWR, " (", wccEBWRlwr, " — ", wccEBWRupr, ")")
@@ -362,7 +374,7 @@ mx[2, 2] <- paste0(wpoolEBWR, " (", wpoolEBWRlwr, " — ", wpoolEBWRupr, ")")
 
 mx %>%
   htmlTable(caption = "<b>Table 3. Model coefficients for relationship between HIV and bridge width. The Expected Bridge Width Ratio (EBWR) is the ratio of expected bridge widths for those who are HIV positive compared to those who are HIV negative. The EBWR is derived from the negative binomial model that also adjusts for the age of the participant.</b>",
-            tfoot = txtMergeLines("The complete case analysis uses the raw dataset and observations for which there were no missing data on variables used in the analysis (Women: n = 56; Men: n = 58). The pooled MICE analysis uses the combined 100 imputed datasets presented in the main text."),
+            tfoot = txtMergeLines("The complete case (CC) analysis uses the raw dataset and observations for which there were no missing data on variables used in the analysis (Women: n = 56; Men: n = 58). The multiple imputation (MI) analysis  pools coefficients according to Rubin's Rules from the combined 100 imputed datasets presented in the main text."),
             rowlabel = "Analysis type",
             ctable = TRUE)
 

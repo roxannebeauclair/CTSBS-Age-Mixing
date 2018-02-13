@@ -121,6 +121,27 @@ parts_many_partner <- partdfimp %>%
   filter(relcount > 1) %>%
   nrow()
 
+# Distribution of strata in CC
+strata <- dfimp %>%
+  filter(.imp == 0) %>%
+  select(id, sex, hiv) %>%
+  na.omit() %>% # Removes observations which are missing on sex, or hiv
+  count(sex, hiv) %>%
+  ungroup() %>%
+  mutate(total = sum(n), 
+         prop = round((n / total) * 100, 2))
+
+
+# Range of partner ages for HIV positive men in CC
+pagerange <- dfimp %>%
+  filter(.imp == 0,
+         sex == "Male",
+         hiv == "Positive") 
+
+nhivmen <- nrow(pagerange)
+pagerangemin <- summary(pagerange$agep)[[1]]
+pagerangemax <- summary(pagerange$agep)[[6]]
+  
 
 rm(df, df1, df2, df3, df4, df5, df6, df7)
 
@@ -382,16 +403,6 @@ wvardifci <- difwvarsum %>%
 ```
 
 ```{r bvar_setup, include = FALSE, warning = FALSE}
-# Range of partner ages for HIV positive men in CC
-pagerange <- dfimp %>%
-  filter(.imp == 0,
-         sex == "Male",
-         hiv == "Positive") 
-
-nhivmen <- nrow(pagerange)
-pagerangemin <- summary(pagerange$agep)[[1]]
-pagerangemax <- summary(pagerange$agep)[[6]]
-  
 
 # Unnest tidy summary for data on between individual variance
 modbvar <- ampdf %>%
@@ -657,7 +668,7 @@ mx[4, 4] <- paste0(wvardifci$meanhivdiffemale, " (", wvardifci$lwrhivdiffemale, 
 
 ```{r table 1, echo = FALSE, fig.width = 10}
 
-# Male models table
+
 mx %>%
   htmlTable(caption = "<b>Table 1. Differences between age-mixing pattern model features.</b>",
             tfoot = txtMergeLines("HNM, HIV Negative Men", 

@@ -379,3 +379,21 @@ mx %>%
             ctable = TRUE)
 
 ```
+
+
+```{r prop_relcount_strata, include = FALSE}
+strata <- smalldf %>%
+  distinct(id, .keep_all = T) %>%
+  select(id, sex, hiv, relcount) %>%
+  mutate(mp = ifelse(relcount > 1, "mp", "one only")) %>%
+  na.omit()
+
+strata
+
+strata %>%
+  group_by(sex, hiv, mp) %>%
+  summarise(n = n()) %>%
+  mutate(prop = (n / sum(n)) * 100)
+
+```
+

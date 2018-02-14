@@ -122,19 +122,21 @@ start.time <- Sys.time()
 
 for (i in 1:length(delta)) {
   
-  d <- delta[i]
-  post["hiv"] <- paste("imp[[j]][,i] <- imp[[j]][,i] +", d)
+  #d <- delta[i]
+  #cmd <- paste("imp[[j]][,i] <- imp[[j]][,i] +", d)
+  #post["hiv"] <- cmd
   
   # ================================
   # Conduct imputation for particular assumption of missingness
   # ================================
   imp <- mice(dfmice, 
             m = 100,
-            # method = meth,
+            method = meth,
             predictorMatrix = pred,
             seed = 40657,
             maxit = 10,
-            post = post)
+            # post = post,
+            print = FALSE)
   
   # ================================
   # Convert mids object to dataframe
@@ -148,9 +150,9 @@ for (i in 1:length(delta)) {
   # Ensure all of participant-level variables are the same by id
   # Will do this by using the first value by id for each imputed df
   dfimp1cc <- dfimp %>%
-    arrange(.imp, id) %>%
-    filter(.imp == 0) # Keep complete cases aside
-  
+  arrange(.imp, id) %>%
+  filter(.imp == 0) # Keep complete cases aside
+
   dfimp1mis <- dfimp %>%
     arrange(.imp, id) %>%
     group_by(.imp, id) %>%
@@ -167,11 +169,11 @@ for (i in 1:length(delta)) {
   
   dfimp1 <- bind_rows(dfimp1cc, dfimp1mis) %>%
     as.data.frame()
-  
+           
   # Ensure all cont vars have plausible values 
   dfimp2 <- dfimp1 %>%
     mutate(age = ifelse(age < 15, 15, 
-                        ifelse(age > 69, 69, age)) %>%
+                    ifelse(age > 69, 69, age)) %>%
              round(),
            agep = ifelse(agep < 11, 11, 
                          ifelse(agep > 95, 95, agep)) %>%
@@ -181,14 +183,21 @@ for (i in 1:length(delta)) {
            reldurweeks = ifelse(reldurweeks < 1, 1,
                                 ifelse(reldurweeks > 51, 51, reldurweeks)) %>%
              round())
-  
+             
   # New measures for subsequent analyses
   dfimp3 <- dfimp2 %>%
     mutate(agedif = ifelse(sex == "Male", age - agep, agep - age)) %>%
     group_by(.imp, id) %>%
-    mutate(admax = max(agedif, na.rm = T),
+    mutate(admean = round(mean(agedif, na.rm = T)),
+           admax = max(agedif, na.rm = T),
            admin = min(agedif, na.rm = T),
-           bridgewidth = admax - admin) %>%
+           bridgewidth = admax - admin,
+           partconcur = ifelse(any(relconcur == "Yes"), "Yes", "No"),
+           partcf = ifelse(all(relcf == "Always"), "Always", 
+                                  ifelse(all(relcf == "Never"), "Never",
+                                         "Inconsistent")),
+           partsf = round(mean(relsf, na.rm = T)),
+           partdurweeks = round(mean(reldurweeks, na.rm = T))) %>%
     ungroup() 
   
   dfimp4 <- dfimp3 %>%
@@ -198,7 +207,9 @@ for (i in 1:length(delta)) {
     ungroup()
   
   dfimp <- dfimp4 %>%
-    mutate(age0 = age - 15, # Centered on youngest age
+    mutate(partconcur = as.factor(partconcur),
+           partcf = as.factor(partcf),
+           age0 = age - 15, # Centered on youngest age
            agemean = age - aveage, # Centered age on mean
            age2sd = (age - aveage)/ (2 * sdage), # Centered age on mean, then scaled by 2SD
            agegroup = cut(age,
@@ -208,39 +219,40 @@ for (i in 1:length(delta)) {
                            breaks = c(10, 24, 34, 44, 54, 100),
                            labels = c("<=24", "25-34", "35-44", "45-54", ">=55"))) %>%
     as.data.frame()
+
   
   # Create separate dataset that only has one row per participant and imputation
   partdfimp <- dfimp %>%
     distinct(.imp, id, .keep_all = T)
 
   # Turn back to mids object for models and pooling
-  part <- partdfimp %>% 
+  part <- partdfimp %>% # Take original participant-level imputed df
    mutate(bridgewidth = ifelse(bridgewidth == -Inf | bridgewidth == Inf, 
                                NA, bridgewidth)) %>% # Change Inf, -Inf from CC data to NA
    filter(relcount > 1) %>% # Only participants who had more than one rel
-   as.mids() 
+   as.mids() # Create mids object
+ 
+  estm[[i]] <- part %>%
+     with(gam(bridgewidth ~ hiv + s(age),
+           family = nb(),
+           subset = (sex == "Male")) 
+          ) %>%
+     pool() %>% # Pool coefficients according to Rubin's Rules
+     summary() %>%
+     exp() %>%
+     round(2) 
+   
+  estw[[i]] <- part %>%
+     with(
+       gam(bridgewidth ~ hiv + s(age),
+           family = nb(),
+           subset = (sex == "Female"))
+       ) %>%
+     pool() %>% # Pool according to Rubin's Rules
+     summary() %>%
+     exp() %>%
+     round(2) 
   
-  fitm <- part %>%
-   with(gam(bridgewidth ~ hiv + s(age),
-         family = nb(),
-         subset = (sex == "Male")))
-  
-  estm[[i]] <- fitm %>%
-    pool() %>%
-    summary() %>%
-    exp() %>%
-    round(2)
-  
-  fitw <- part %>%
-   with(gam(bridgewidth ~ hiv + s(age),
-         family = nb(),
-         subset = (sex == "Female")))
-  
-  estw[[i]] <- fitw %>%
-    pool() %>%
-    summary() %>%
-    exp() %>%
-    round(2)
 }
 
 
